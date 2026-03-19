@@ -1,0 +1,11 @@
+# Ne pas envoyer la base de données
+*.sqlite
+*.db
+
+# Ne pas envoyer les fichiers Excel/CSV du CHU
+*.csv
+*.xlsx
+
+# Ne pas envoyer les environnements virtuels Python
+.venv/
+__pycache__/
