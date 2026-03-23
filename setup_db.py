@@ -1,10 +1,10 @@
 import sqlite3
 
-# 1. Créer le fichier de la base de données (il va se créer tout seul)
+# 1. Créer le fichier de la base de données 
 connexion = sqlite3.connect('label_vivre.sqlite')
 curseur = connexion.cursor()
 
-# 2. Lire TON fichier SQL
+# 2. Lire le fichier SQL
 with open('SCRIPT_CREATION_BDD_V1.sql', 'r', encoding='utf-8') as fichier_sql:
     script_sql = fichier_sql.read()
 
