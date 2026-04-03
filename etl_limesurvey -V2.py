@@ -26,7 +26,7 @@ colonnes_fixes = [
 ]
 
 # 4. LA BOUCLE MAGIQUE (Extraction + Transformation)
-print("🚀 DÉMARRAGE DE LA TRANSFORMATION DES 9 FICHIERS...\n")
+print(" DÉMARRAGE DE LA TRANSFORMATION DES 9 FICHIERS...\n")
 
 for nom_fichier in liste_fichiers:
     chemin_complet = os.path.join(dossier_donnees, nom_fichier)
@@ -54,7 +54,7 @@ for nom_fichier in liste_fichiers:
         # Sauvegarde d'un fichier de vérification pour le premier fichier traité
         if nom_fichier == "EHPAD - Proches.xlsx":
             df_long.to_csv("VERIFICATION_RESULTAT.csv", index=False, encoding='utf-8')
-            print("  💾 Fichier de vérification créé : VERIFICATION_RESULTAT.csv")
+            print("   Fichier de vérification créé : VERIFICATION_RESULTAT.csv")
             
     except Exception as e:
         print(f" Erreur sur ce fichier : {e}")
