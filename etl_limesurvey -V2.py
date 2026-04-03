@@ -57,6 +57,6 @@ for nom_fichier in liste_fichiers:
             print("  💾 Fichier de vérification créé : VERIFICATION_RESULTAT.csv")
             
     except Exception as e:
-        print(f"❌ Erreur sur ce fichier : {e}")
+        print(f" Erreur sur ce fichier : {e}")
 
-print("\n✅ TOUS LES FICHIERS ONT ÉTÉ TRAITÉS AVEC SUCCÈS !")
+print("\n TOUS LES FICHIERS ONT ÉTÉ TRAITÉS AVEC SUCCÈS !")
