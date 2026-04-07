@@ -5,9 +5,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 
-# ============================================================
 # CONFIGURATION DE LA PAGE
-# ============================================================
+
 st.set_page_config(
     page_title="Label Vivre",
     page_icon="❤️",
@@ -15,9 +14,8 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ============================================================
 # STYLES CSS - Couleurs des maquettes
-# ============================================================
+
 st.markdown("""
 <style>
     /* Couleurs principales des maquettes */
@@ -152,9 +150,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ============================================================
+
 # CONNEXION BASE DE DONNÉES
-# ============================================================
+
 @st.cache_resource
 def get_connexion():
     chemin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
@@ -245,18 +243,18 @@ def get_donnees_brutes(limite=100):
     """, conn)
 
 
-# ============================================================
+
 # ÉTAT DE LA PAGE (navigation)
-# ============================================================
+
 if 'page' not in st.session_state:
     st.session_state.page = 'accueil'
 if 'profil' not in st.session_state:
     st.session_state.profil = None
 
 
-# ============================================================
+
 # HEADER - Toujours visible
-# ============================================================
+
 st.markdown("""
 <div class="header-bar">
     <div>
@@ -267,9 +265,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ============================================================
 # PAGE ACCUEIL
-# ============================================================
+
 if st.session_state.page == 'accueil':
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<h2 style='text-align:center; font-family:Georgia; color:#5C5C5C;'>Vous êtes :</h2>", unsafe_allow_html=True)
@@ -296,10 +293,8 @@ if st.session_state.page == 'accueil':
             st.session_state.page = 'dashboard'
             st.rerun()
 
-
-# ============================================================
 # PAGE DASHBOARD
-# ============================================================
+
 elif st.session_state.page == 'dashboard':
 
     # Navigation
@@ -485,9 +480,8 @@ elif st.session_state.page == 'dashboard':
         st.rerun()
 
 
-# ============================================================
 # PAGE DONNÉES BRUTES
-# ============================================================
+
 elif st.session_state.page == 'donnees':
 
     col_nav1, col_nav2, col_nav3 = st.columns(3)
@@ -522,9 +516,9 @@ elif st.session_state.page == 'donnees':
         st.rerun()
 
 
-# ============================================================
+
 # PAGE EXPORT
-# ============================================================
+
 elif st.session_state.page == 'export':
 
     col_nav1, col_nav2, col_nav3 = st.columns(3)
