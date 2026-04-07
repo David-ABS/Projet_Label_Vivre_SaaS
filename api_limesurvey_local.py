@@ -17,10 +17,8 @@ def get_connexion():
     conn.row_factory = sqlite3.Row  # Permet d'accéder aux colonnes par nom
     return conn
 
-
-# ============================================================
 # FONCTION 1 : Récupérer TOUTES les réponses (avec pagination)
-# ============================================================
+
 def get_toutes_reponses(limite=100, offset=0):
     """
     Récupère toutes les réponses de la base, avec pagination.
@@ -71,10 +69,8 @@ def get_toutes_reponses(limite=100, offset=0):
 
     return resultat
 
-
-# ============================================================
 # FONCTION 2 : Filtrer par question
-# ============================================================
+
 def get_reponses_par_question(mot_cle):
     """
     Filtre les réponses contenant un mot-clé dans la question.
@@ -111,9 +107,9 @@ def get_reponses_par_question(mot_cle):
 
     return resultat
 
-# ============================================================
+
 # FONCTION 3 : Score moyen par question (pour les analyses NPS)
-# ============================================================
+
 def get_scores_moyens():
     """
     Calcule le score moyen pour chaque question.
@@ -149,9 +145,9 @@ def get_scores_moyens():
 
     return resultat
 
-# ============================================================
+
 # FONCTION 4 : Résumé général de la base (tableau de bord)
-# ============================================================
+
 def get_resume_bdd():
     """
     Retourne un résumé statistique de la base de données.
@@ -190,9 +186,9 @@ def get_resume_bdd():
 
     return resultat
 
-# ============================================================
+
 # PROGRAMME PRINCIPAL - Démonstration des 4 fonctions
-# ============================================================
+
 if __name__ == "__main__":
 
     print("=" * 60)
