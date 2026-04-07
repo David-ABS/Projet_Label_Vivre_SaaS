@@ -3,10 +3,8 @@ import json
 import os
 from datetime import datetime
 
-# ============================================================
 # ID 11 - AUTOMATISATION : Connexion BDD + Récupération JSON
 # Simule une API LimeSurvey en lisant directement SQLite
-# ============================================================
 
 # 1. CHEMIN DE LA BASE DE DONNÉES
 # Modifie ce chemin pour pointer vers ton fichier label_vivre.sqlite
@@ -113,7 +111,6 @@ def get_reponses_par_question(mot_cle):
 
     return resultat
 
-
 # ============================================================
 # FONCTION 3 : Score moyen par question (pour les analyses NPS)
 # ============================================================
@@ -151,7 +148,6 @@ def get_scores_moyens():
     }
 
     return resultat
-
 
 # ============================================================
 # FONCTION 4 : Résumé général de la base (tableau de bord)
@@ -193,7 +189,6 @@ def get_resume_bdd():
     }
 
     return resultat
-
 
 # ============================================================
 # PROGRAMME PRINCIPAL - Démonstration des 4 fonctions
