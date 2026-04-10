@@ -9,3 +9,6 @@
 # Ne pas envoyer les environnements virtuels Python
 .venv/
 __pycache__/
+
+# Ne pas envoyer les fichiers de configuration sensibles
+creer_hash.py
