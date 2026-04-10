@@ -42,9 +42,9 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
-# ============================================================
-# BASE DE DONNÉES DES COMPTES (À remplacer par tes vrais hashs)
-# ============================================================
+# ============================
+# BASE DE DONNÉES DES COMPTES 
+# ============================
 COMPTES_AUTORISES = {
     "admin_prismatics": {
         "hash": "scrypt:32768:8:1$XUzvzmGi5TJWwRQ0$e36dc27f2cc6eb054be09557c84d4a06a3db9d08f2e46c4ff5fdf719166f1f74409290fa22592dcefd10a5e9890e4dda2e22ddb5973ba2990386c21fc5b6f894", 
