@@ -6,9 +6,8 @@ import plotly.graph_objects as go
 import os
 from werkzeug.security import check_password_hash
 
-# ============================================================
 # CONFIGURATION DE LA PAGE ET CSS
-# ============================================================
+
 st.set_page_config(
     page_title="Label Vivre",
     page_icon="❤️",
