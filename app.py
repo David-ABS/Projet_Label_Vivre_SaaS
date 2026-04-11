@@ -5,7 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import os
 from werkzeug.security import check_password_hash
-
+from textblob import TextBlob
 
 
 # CONFIGURATION PAGE ET CSS (AVEC L'ASTUCE PDF)
@@ -564,6 +564,42 @@ def get_donnees_brutes(id_structure, annee, limite=100):
     """
     return pd.read_sql_query(query, conn, params=params)
 
+@st.cache_data
+def get_analyse_verbatims(id_structure, annee):
+    conn = get_connexion()
+    where, params = build_filtre(id_structure, annee)
+    
+    # 1. Extraire les commentaires libres
+    query = f"""
+        SELECT 
+            CASE 
+                WHEN "Question_Formulation" LIKE '%résident%' OR "Question_Formulation" LIKE '%habitant%' THEN 'Résident'
+                WHEN "Question_Formulation" LIKE '%équipe%' OR "Question_Formulation" LIKE '%salarié%' THEN 'Équipe'
+                ELSE 'Proche'
+            END AS public,
+            "Valeur_Brute" AS commentaire
+        FROM DONNEES_LIMESURVEY_NETTOYEES
+        WHERE {where}
+        AND ("Question_Formulation" LIKE '%remarque%' OR "Question_Formulation" LIKE '%commentaire%')
+        AND "Valeur_Brute" IS NOT NULL AND "Valeur_Brute" != ''
+    """
+    df_commentaires = pd.read_sql_query(query, conn, params=params)
+    
+    # 2. Analyser le sentiment (-1 négatif à +1 positif)
+    def calculer_sentiment(texte):
+        try:
+            return TextBlob(str(texte)).sentiment.polarity
+        except:
+            return 0.0
+
+    if not df_commentaires.empty:
+        df_commentaires['score_ia'] = df_commentaires['commentaire'].apply(calculer_sentiment)
+        # 3. Récupérer le Top 5 et le Flop 5
+        top_positifs = df_commentaires[df_commentaires['score_ia'] > 0.05].nlargest(5, 'score_ia')
+        top_suggestions = df_commentaires[df_commentaires['score_ia'] < -0.05].nsmallest(5, 'score_ia')
+        return top_positifs, top_suggestions
+    else:
+        return pd.DataFrame(), pd.DataFrame()
 
 
 # ALGORITHME LABEL VIVRE (TÂCHE 20)
@@ -735,7 +771,9 @@ if st.session_state.page == 'dashboard':
     # ONGLET 1 : SYNTHÈSE
     with tab_synthese:
         col1, col2, col3, col4, col5 = st.columns(5)
+        valeur_nps = nps['NPS'] if pd.notna(nps['NPS']) else 0
         couleur_nps = "#6BBFB5" if nps['NPS'] >= 30 else "#E8706A"
+        affichage_nps = nps['NPS'] if pd.notna(nps['NPS']) else "N/A"
 
         with col1:
             st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{nps['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
@@ -785,14 +823,26 @@ if st.session_state.page == 'dashboard':
             fig_flop.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=400, showlegend=False, coloraxis_showscale=False, yaxis_title='', xaxis=dict(range=[0, 4]), margin=dict(l=10))
             st.plotly_chart(fig_flop, use_container_width=True)
 
-    # ONGLET 3 : VERBATIM
+    # ONGLET 3 : VERBATIM (TÂCHE 16 : ANALYSE IA)
     with tab_verbatim:
-        st.markdown("<div class='section-title'> Ce qu'ils nous ont dit</div>", unsafe_allow_html=True)
-        st.markdown("#### Retours des Résidents")
-        st.info("« C'est une bonne chose de faire cette enquête régulièrement. »")
-        st.info("« Cela me semble important de connaître les impressions de chacun. »")
-        st.markdown("#### Retours de l'Équipe")
-        st.warning("« Il manque toujours des questions précises sur l'inclusion, le fonctionnement du service... »")
+        st.markdown("<div class='section-title'>💬 Ce qu'ils nous ont dit (Analyse IA)</div>", unsafe_allow_html=True)
+        
+        top_positifs, top_suggestions = get_analyse_verbatims(id_structure_actif, annee_active)
+        
+        if not top_positifs.empty:
+            col_pos, col_neg = st.columns(2)
+            
+            with col_pos:
+                st.markdown("### 💚 Ce qu'ils apprécient")
+                for _, row in top_positifs.iterrows():
+                    st.success(f"**{row['public']} :** « {row['commentaire']} »")
+                    
+            with col_neg:
+                st.markdown("### 🛠️ Pistes d'amélioration")
+                for _, row in top_suggestions.iterrows():
+                    st.warning(f"**{row['public']} :** « {row['commentaire']} »")
+        else:
+            st.info("Aucun commentaire libre n'a été laissé pour cette sélection.")
 
     # ONGLET 4 : MÉTHODOLOGIE
     with tab_methodo:
