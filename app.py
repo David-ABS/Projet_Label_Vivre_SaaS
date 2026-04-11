@@ -6,9 +6,9 @@ import plotly.graph_objects as go
 import os
 from werkzeug.security import check_password_hash
 
-# ============================================================
+
 # CONFIGURATION PAGE ET CSS (AVEC L'ASTUCE PDF)
-# ============================================================
+
 st.set_page_config(
     page_title="Label Vivre",
     page_icon="❤️",
@@ -777,6 +777,8 @@ elif st.session_state.page == 'label':
         nom_actif = row_actif.iloc[0]['Structure'] if not row_actif.empty else "Établissement"
         annee_label = str(annee_active) if annee_active else "toutes années"
         st.markdown(f"**Analyse pour : {nom_actif} · {annee_label}**")
+
+        
     else:
         st.markdown("**Analyse globale — tous les établissements**")
 
