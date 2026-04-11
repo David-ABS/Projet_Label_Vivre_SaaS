@@ -740,13 +740,13 @@ if st.session_state.page == 'dashboard':
         with col1:
             st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{nps['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>😍 Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
         with col3:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>😐 Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps['pct_passifs']}%</div><div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps['pct_passifs']}%</div><div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>😡 Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps['pct_detracteurs']}%</div><div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps['pct_detracteurs']}%</div><div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
         with col5:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>📝 Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns(2)
@@ -799,11 +799,11 @@ if st.session_state.page == 'dashboard':
         st.markdown("<div class='section-title'>Méthodologie - Échantillons</div>", unsafe_allow_html=True)
         col_m1, col_m2, col_m3 = st.columns(3)
         with col_m1:
-            st.markdown("<div class='kpi-card' style='border-top: 5px solid #E8706A;'><h3 style='color:#E8706A;'>👴 Résidents</h3><p>Présentiel (Entretiens)</p><h2 style='color:#5C5C5C;'>44%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+            st.markdown("<div class='kpi-card' style='border-top: 5px solid #E8706A;'><h3 style='color:#E8706A;'>Résidents</h3><p>Présentiel (Entretiens)</p><h2 style='color:#5C5C5C;'>44%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
         with col_m2:
-            st.markdown("<div class='kpi-card' style='border-top: 5px solid #6BBFB5;'><h3 style='color:#6BBFB5;'>👨‍👩‍👧 Proches</h3><p>Distanciel (Email)</p><h2 style='color:#5C5C5C;'>53%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+            st.markdown("<div class='kpi-card' style='border-top: 5px solid #6BBFB5;'><h3 style='color:#6BBFB5;'>Proches</h3><p>Distanciel (Email)</p><h2 style='color:#5C5C5C;'>53%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
         with col_m3:
-            st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>👩‍⚕️ Équipe</h3><p>Distanciel (En ligne)</p><h2 style='color:#5C5C5C;'>99%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+            st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>Équipe</h3><p>Distanciel (En ligne)</p><h2 style='color:#5C5C5C;'>99%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
 
 # ============================================================
 # PAGE DONNÉES BRUTES
