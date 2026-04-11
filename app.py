@@ -98,9 +98,9 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ============================================================
+
 # COMPTES AUTORISÉS (AVEC TOUS TES 31 ETABLISSEMENTS)
-# ============================================================
+
 COMPTES_AUTORISES = {
     "stephane_dardelet": {
         "hash": "scrypt:32768:8:1$hKj4IHdUQMNBMYez$c6341c4be133c7b35f6cf656d99b758417de3a9576ee91b8ae332f0bc5d35b5f0daa09da94820500ba1832e3c57768c89b803cdea7376c3ecc1b69cfead068b0",
@@ -296,9 +296,8 @@ COMPTES_AUTORISES = {
     },
 }
 
-# ============================================================
 # SESSION STATE
-# ============================================================
+
 for key, val in [
     ('identifiant', None), ('profil', None), ('page', 'accueil'),
     ('filtre_structure', None), ('filtre_annee', None)
@@ -312,18 +311,18 @@ def logout():
     st.session_state.page = 'accueil'
     st.rerun()
 
-# ============================================================
+
 # PAGE LOGIN
-# ============================================================
+
 if st.session_state.identifiant is None:
-    st.markdown("<h2 style='text-align:center; color:#F5A623;'>🔐 Accès Restreint</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color:#F5A623;'>Accès Restreint</h2>", unsafe_allow_html=True)
     st.info("L'accès à cette plateforme est réservé aux administrateurs et aux directions d'établissements.")
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         with st.form("login_form"):
-            username = st.text_input("Identifiant").strip().lower()
-            password = st.text_input("Mot de passe", type="password")
+            username = st.text_input("Identifiant :").strip().lower()
+            password = st.text_input("Mot de passe :", type="password")
             submit = st.form_submit_button("Se connecter", use_container_width=True)
 
             if submit:
@@ -366,9 +365,9 @@ def get_annees():
     )
     return df['Annee'].tolist()
 
-# ============================================================
+
 # FONCTIONS DE DONNÉES FILTRÉES PAR ÉTABLISSEMENT + ANNÉE
-# ============================================================
+
 def build_filtre(id_structure, annee):
     conditions = ["CAST(\"Score\" AS FLOAT) IN (1.0,2.0,3.0,4.0)"]
     params = []
@@ -476,9 +475,9 @@ def get_donnees_brutes(id_structure, annee, limite=100):
     return pd.read_sql_query(query, conn, params=params)
 
 
-# ============================================================
+
 # ALGORITHME LABEL VIVRE (TÂCHE 20)
-# ============================================================
+
 QUESTIONS_ESSENTIELLES = [
     "Je me sens en sécurité", "Je me sens respecté(e) en tant que personne",
     "Mon intégrité corporelle est respectée", "Je me sens respecté(e) physiquement",
@@ -542,9 +541,9 @@ def get_verdict_label(scores_public, criteres):
     return {'verdict': c1_ok and c2_ok, 'c1_ok': c1_ok, 'c2_ok': c2_ok, 'nb_bloquants': len(critique_bloquant), 'nb_avertissements': len(critique_avert)}
 
 
-# ============================================================
+
 # NAVIGATION
-# ============================================================
+
 col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6 = st.columns([2, 2, 2, 2, 2, 1])
 with col_nav1:
     if st.button(" Tableau de bord", use_container_width=True):
