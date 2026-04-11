@@ -109,6 +109,45 @@ button[kind="secondary"]:hover {
     color: white !important;
     border: none !important;
 }
+            /* INPUT TEXT (Identifiant + Mot de passe) */
+input {
+    background-color: #F0FAF8 !important;   /* vert très clair */
+    border: 2px solid #6BBFB5 !important;   /* vert logo */
+    border-radius: 8px !important;
+    color: #333 !important;
+}
+
+/* Focus (quand tu cliques) */
+input:focus {
+    border: 2px solid #6BBFB5 !important;
+    box-shadow: 0 0 6px rgba(107, 191, 181, 0.4) !important;
+    outline: none !important;
+}
+            /* Bouton oeil du mot de passe */
+[data-testid="stTextInput"] button,
+[data-testid="stTextInput"] button:hover,
+[data-testid="stTextInput"] button:focus,
+[data-testid="stTextInput"] button:active {
+    color: #6BBFB5 !important;
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Icône SVG de l'oeil */
+[data-testid="stTextInput"] button svg,
+[data-testid="stTextInput"] button:hover svg,
+[data-testid="stTextInput"] button:focus svg,
+[data-testid="stTextInput"] button:active svg {
+    fill: #6BBFB5 !important;
+    color: #6BBFB5 !important;
+}
+
+/* Option hover rouge */
+[data-testid="stTextInput"] button:hover svg {
+    fill: #E65A5A !important;
+    color: #E65A5A !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
