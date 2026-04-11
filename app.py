@@ -11,7 +11,6 @@ from werkzeug.security import check_password_hash
 
 st.set_page_config(
     page_title="Label Vivre",
-    page_icon="❤️",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -93,7 +92,7 @@ st.markdown("""
 st.markdown("""
 <div class="header-bar">
     <div>
-        <div class="header-title">❤️ Label Vivre</div>
+        <div class="header-title">Label Vivre</div>
         <div class="header-subtitle">Engagés pour nos aînés</div>
     </div>
 </div>
