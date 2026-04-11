@@ -5,28 +5,24 @@ import os
 print(" Début de l'importation de la table STRUCTURE...")
 
 dossier_actuel = os.path.dirname(os.path.abspath(__file__))
-chemin_csv = os.path.join(dossier_actuel, "jeux_de_donnees", "etablissements.csv")
+
+# Le fichier établissement.csv est en réalité un fichier Excel (.xlsx renommé)
+# On le lit avec openpyxl directement
+chemin_fichier = os.path.join(dossier_actuel, "jeux_de_donnees", "etablissement.xlsx")
 chemin_bdd = os.path.join(dossier_actuel, "label_vivre.sqlite")
 
 try:
-    # 1. LECTURE
-    df_structure = pd.read_csv(
-        chemin_csv, 
-        sep=';',
-        encoding='utf-8', 
-        engine='python', 
-        on_bad_lines='skip'
-    )
-    
-    # 2. NETTOYAGE
-    df_structure = df_structure.loc[:, ~df_structure.columns.str.contains('^Unnamed')]
-    df_structure.columns = df_structure.columns.astype(str).str.replace('\x00', '').str.strip()
+    # 1. LECTURE comme Excel (le fichier est un .xlsx renommé en .csv)
+    df_structure = pd.read_excel(chemin_fichier, engine='openpyxl')
 
-    nom_col = df_structure.columns[0]
-    df_structure = df_structure.dropna(subset=[nom_col])
-    df_structure = df_structure[df_structure[nom_col].astype(str).str.strip() != ""]
+    # 2. NETTOYAGE des noms de colonnes
+    df_structure.columns = df_structure.columns.str.strip()
+    df_structure['Structure'] = df_structure['Structure'].str.strip()
+    df_structure['Type'] = df_structure['Type'].str.strip()
+    df_structure['Région'] = df_structure['Région'].str.strip()
+    df_structure['Département'] = df_structure['Département'].str.strip()
 
-    # 3. LA CORRECTION : Ajout de la colonne Id_structure (Numérotation de 1 à N)
+    # 3. AJOUT de l'Id_structure (généré automatiquement)
     df_structure.insert(0, 'Id_structure', range(1, len(df_structure) + 1))
 
     # 4. INJECTION SQL
@@ -34,7 +30,9 @@ try:
     df_structure.to_sql("STRUCTURE", conn, if_exists="replace", index=False)
     conn.close()
 
-    print(f" SUCCÈS TOTAL ! {len(df_structure)} établissements ajoutés avec leur Id_structure.")
+    print(f" SUCCÈS ! {len(df_structure)} établissements ajoutés à la table STRUCTURE.")
+    print()
+    print(df_structure[['Id_structure', 'Structure', 'Type']].to_string())
 
 except Exception as e:
     print(f" ERREUR : {e}")
