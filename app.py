@@ -876,9 +876,9 @@ elif st.session_state.page == 'label':
 
     st.markdown("<br>", unsafe_allow_html=True)
     if verdict['verdict']:
-        st.markdown("""<div style='background:#E8F8F0; border:2px solid #6BBFB5; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#0F6E56; font-family:Georgia;'>🏆 Label Vivre OBTENU</div><div style='color:#0F6E56; margin-top:8px;'>Les deux critères sont validés — l'établissement est éligible au label</div></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style='background:#E8F8F0; border:2px solid #6BBFB5; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#0F6E56; font-family:Georgia;'>Label Vivre obtenu!</div><div style='color:#0F6E56; margin-top:8px;'>Les deux critères sont validés — l'établissement est éligible au label</div></div>""", unsafe_allow_html=True)
     else:
-        st.markdown("""<div style='background:#FEF0F0; border:2px solid #E8706A; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#A32D2D; font-family:Georgia;'>❌ Label Vivre NON OBTENU</div><div style='color:#A32D2D; margin-top:8px;'>Un ou plusieurs critères ne sont pas atteints</div></div>""", unsafe_allow_html=True)
+        st.markdown("""<div style='background:#FEF0F0; border:2px solid #E8706A; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#A32D2D; font-family:Georgia;'>Label Vivre non obtenu.</div><div style='color:#A32D2D; margin-top:8px;'>Un ou plusieurs critères ne sont pas atteints</div></div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'> Critère 2 — Expérience positive (score ≥ 7/10)</div>", unsafe_allow_html=True)
