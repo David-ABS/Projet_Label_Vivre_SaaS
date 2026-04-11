@@ -335,7 +335,18 @@ def logout():
 
 if st.session_state.identifiant is None:
     st.markdown("<h2 style='text-align:center; color:#F5A623;'>Accès Restreint</h2>", unsafe_allow_html=True)
-    st.info("L'accès à cette plateforme est réservé aux administrateurs et aux directions d'établissements.")
+    st.markdown("""
+<div style="
+    background-color: #6BBFB5;
+    color: white;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+    font-weight: 500;
+">
+L'accès à cette plateforme est réservé aux administrateurs et aux directions d'établissements.
+</div>
+""", unsafe_allow_html=True)
 
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
