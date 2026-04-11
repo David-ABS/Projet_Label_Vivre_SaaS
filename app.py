@@ -702,7 +702,7 @@ with st.container():
                     st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
     st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("""<div class='alerte-simu'><strong>⚠️ Données simulées</strong> — La répartition par établissement est temporaire en attente de l'identification LimeSurvey.</div>""", unsafe_allow_html=True)
+
 
 id_structure_actif = st.session_state.filtre_structure
 annee_active = st.session_state.filtre_annee
