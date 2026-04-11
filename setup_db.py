@@ -1,18 +1,27 @@
 import sqlite3
+import os
 
-# 1. Créer le fichier de la base de données 
-connexion = sqlite3.connect('label_vivre.sqlite')
-curseur = connexion.cursor()
+# 1. Sécurité absolue sur les chemins
+dossier_actuel = os.path.dirname(os.path.abspath(__file__))
+chemin_bdd = os.path.join(dossier_actuel, "label_vivre.sqlite")
+chemin_sql = os.path.join(dossier_actuel, "SCRIPT_CREATION_BDD_V1.sql")
 
-# 2. Lire le fichier SQL
-with open('SCRIPT_CREATION_BDD_V1.sql', 'r', encoding='utf-8') as fichier_sql:
-    script_sql = fichier_sql.read()
+print(f"⏳ Création des tables dans : {chemin_bdd}")
 
-# 3. Exécuter le code SQL pour créer toutes les tables
-curseur.executescript(script_sql)
+try:
+    # 2. Créer le fichier de la base de données 
+    connexion = sqlite3.connect(chemin_bdd)
+    curseur = connexion.cursor()
 
-# 4. Valider et fermer
-connexion.commit()
-connexion.close()
+    # 3. Lire le fichier SQL
+    with open(chemin_sql, 'r', encoding='utf-8') as fichier_sql:
+        script_sql = fichier_sql.read()
 
-print("Succès ! La base de données label_vivre.sqlite a été créée avec toutes tes tables.")
+    # 4. Exécuter le code SQL
+    curseur.executescript(script_sql)
+    connexion.commit()
+    connexion.close()
+
+    print("✅ SUCCÈS ! Toutes les tables de SCRIPT_CREATION_BDD_V1.sql ont été créées.")
+except Exception as e:
+    print(f"❌ ERREUR : {e}")
