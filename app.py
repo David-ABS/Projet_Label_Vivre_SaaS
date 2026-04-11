@@ -827,8 +827,8 @@ elif st.session_state.page == 'export':
     st.markdown("<div class='section-title'> Export des données</div>", unsafe_allow_html=True)
 
     # --- L'astuce pour le PDF ---
-    st.info("💡 **Astuce PDF (Rapport) :** Pour générer un rapport PDF parfait, allez dans l'onglet **'Tableau de bord'** et appuyez sur **`Ctrl + P`** (ou `Cmd + P` sur Mac), puis choisissez la destination **'Enregistrer au format PDF'**. Le design a été spécialement codé pour ça !")
-    st.markdown("---")
+    #st.info("💡 **Astuce PDF (Rapport) :** Pour générer un rapport PDF parfait, allez dans l'onglet **'Tableau de bord'** et appuyez sur **`Ctrl + P`** (ou `Cmd + P` sur Mac), puis choisissez la destination **'Enregistrer au format PDF'**. Le design a été spécialement codé pour ça !")
+   # st.markdown("---")
 
     if id_structure_actif:
         row_actif = df_structures[df_structures['Id_structure'] == id_structure_actif]
