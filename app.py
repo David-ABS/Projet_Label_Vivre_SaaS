@@ -7,6 +7,7 @@ import os
 from werkzeug.security import check_password_hash
 
 
+
 # CONFIGURATION PAGE ET CSS (AVEC L'ASTUCE PDF)
 
 st.set_page_config(
@@ -22,11 +23,14 @@ st.markdown("""
         --beige: #FAF6F1; --gris: #5C5C5C;
     }
     .stApp { background-color: #FAF6F1; }
-    .header-bar {
-        background-color: #F5A623; padding: 20px 40px;
-        margin: -1rem -1rem 2rem -1rem;
-        display: flex; align-items: center; justify-content: center;
-    }
+   .header-bar {
+    background-color: #F5A623;
+    padding: 20px 40px;
+    margin: -1rem -1rem 2rem -1rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;   /* 👈 IMPORTANT */
+     }
     .header-title {
         font-family: 'Georgia', serif; font-size: 2.5rem;
         font-weight: bold; color: #5C5C5C; text-align: center; margin: 0;
@@ -89,14 +93,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # HEADER
-st.markdown("""
-<div class="header-bar">
-    <div>
-        <div class="header-title">Label Vivre</div>
-        <div class="header-subtitle">Engagés pour nos aînés</div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+# HEADER
+st.markdown(
+    """
+    <div class="header-bar"></div>
+    """,
+    unsafe_allow_html=True
+)
+
+col_logo, col_text = st.columns([1, 6])
+
+with col_logo:
+    st.image("assets/logo.png", width=90)
+
+with col_text:
+    st.markdown(
+        """
+        <div style="padding-top: 8px;">
+            <div class="header-title" style="text-align:left;">Label Vivre</div>
+            <div class="header-subtitle" style="text-align:left;">Engagés pour nos aînés</div>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
 
 
 # COMPTES AUTORISÉS (AVEC TOUS TES 31 ETABLISSEMENTS)
