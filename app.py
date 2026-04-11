@@ -7,7 +7,7 @@ import os
 from werkzeug.security import check_password_hash
 
 # ============================================================
-# CONFIGURATION PAGE
+# CONFIGURATION PAGE ET CSS (AVEC L'ASTUCE PDF)
 # ============================================================
 st.set_page_config(
     page_title="Label Vivre",
@@ -66,6 +66,26 @@ st.markdown("""
         border-radius: 8px; padding: 10px 16px;
         font-size: 0.85rem; color: #8B6914; margin-bottom: 16px;
     }
+    
+    /* ========================================= */
+    /* STRATÉGIE 1 : CSS POUR L'IMPRESSION PDF   */
+    /* ========================================= */
+    @media print {
+        header, .stButton, [data-testid="stSidebar"], .filtre-bar, .alerte-simu { 
+            display: none !important; 
+        }
+        .stApp, body { 
+            background-color: white !important; 
+        }
+        .kpi-card, .js-plotly-plot { 
+            page-break-inside: avoid !important; 
+            break-inside: avoid;
+        }
+        * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -80,7 +100,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ============================================================
-# COMPTES AUTORISÉS
+# COMPTES AUTORISÉS (AVEC TOUS TES 31 ETABLISSEMENTS)
 # ============================================================
 COMPTES_AUTORISES = {
     "stephane_dardelet": {
@@ -297,7 +317,7 @@ def logout():
 # PAGE LOGIN
 # ============================================================
 if st.session_state.identifiant is None:
-    st.markdown("<h2 style='text-align:center; color:#F5A623;'> Accès Restreint</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align:center; color:#F5A623;'>🔐 Accès Restreint</h2>", unsafe_allow_html=True)
     st.info("L'accès à cette plateforme est réservé aux administrateurs et aux directions d'établissements.")
 
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -314,7 +334,6 @@ if st.session_state.identifiant is None:
                         st.session_state.identifiant = username
                         st.session_state.profil = compte["profil"]
                         st.session_state.page = 'dashboard'
-                        # Si établissement : pré-sélectionner sa structure
                         if compte["profil"] == "etablissement":
                             st.session_state.filtre_structure = compte["Id_structure"]
                         st.rerun()
@@ -352,7 +371,6 @@ def get_annees():
 # FONCTIONS DE DONNÉES FILTRÉES PAR ÉTABLISSEMENT + ANNÉE
 # ============================================================
 def build_filtre(id_structure, annee):
-    """Construit la clause WHERE SQL selon les filtres actifs."""
     conditions = ["CAST(\"Score\" AS FLOAT) IN (1.0,2.0,3.0,4.0)"]
     params = []
     if id_structure:
@@ -458,6 +476,73 @@ def get_donnees_brutes(id_structure, annee, limite=100):
     """
     return pd.read_sql_query(query, conn, params=params)
 
+
+# ============================================================
+# ALGORITHME LABEL VIVRE (TÂCHE 20)
+# ============================================================
+QUESTIONS_ESSENTIELLES = [
+    "Je me sens en sécurité", "Je me sens respecté(e) en tant que personne",
+    "Mon intégrité corporelle est respectée", "Je me sens respecté(e) physiquement",
+    "Je mange toujours à ma faim", "Je me sens propre au quotidien",
+    "L'établissement me semble vigilant face aux risques de mauvais traitement",
+    "Je me sens en sécurité dans la résidence", "Je me sens en sécurité dans l'habitat partagé",
+    "Je me sens en sécurité dans mon logement",
+    "L'habitat partagé me semble vigilant face aux risques de mauvais traitement",
+]
+
+def get_score_par_public(id_structure, annee):
+    conn = get_connexion()
+    where, params = build_filtre(id_structure, annee)
+    query = f"""
+        SELECT
+            CASE
+                WHEN "Question_Formulation" LIKE '%résident%' OR "Question_Formulation" LIKE '%habitant%' THEN 'Résidents'
+                WHEN "Question_Formulation" LIKE '%proche%'   THEN 'Proches'
+                WHEN "Question_Formulation" LIKE '%équipe%' OR "Question_Formulation" LIKE '%salarié%'  THEN 'Équipe'
+                ELSE NULL
+            END AS public,
+            ROUND(AVG(CAST("Score" AS FLOAT)), 4) AS score_moyen_4,
+            COUNT(DISTINCT "ID de la réponse") AS nb_repondants
+        FROM DONNEES_LIMESURVEY_NETTOYEES
+        WHERE {where} AND "Question_Formulation" NOT LIKE 'Durée%' AND "Question_Formulation" NOT LIKE 'Commentaire%' AND "Question_Formulation" NOT LIKE 'Temps%'
+        GROUP BY public HAVING public IS NOT NULL ORDER BY public
+    """
+    df = pd.read_sql_query(query, conn, params=params)
+    df['score_10'] = ((df['score_moyen_4'] - 1) / 3 * 10).round(2)
+    df['valide'] = df['score_10'] >= 7.0
+    return df
+
+def get_criteres_essentiels(id_structure, annee):
+    conn = get_connexion()
+    where, params = build_filtre(id_structure, annee)
+    resultats = []
+    for question in QUESTIONS_ESSENTIELLES:
+        query = f"""
+            SELECT "{question}" AS question_label, COUNT(*) AS total,
+                SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1.0, 2.0) THEN 1 ELSE 0 END) AS nb_negatifs,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1.0, 2.0) THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_negatifs
+            FROM DONNEES_LIMESURVEY_NETTOYEES
+            WHERE {where} AND "Question_Formulation" LIKE ? AND CAST("Score" AS FLOAT) IN (1.0, 2.0, 3.0, 4.0)
+        """
+        p = params + [f"%{question}%"]
+        df = pd.read_sql_query(query, conn, params=p)
+        if not df.empty and df.iloc[0]['total'] > 0:
+            row = df.iloc[0]
+            resultats.append({
+                'question': question, 'total': int(row['total']), 'nb_negatifs': int(row['nb_negatifs']),
+                'pct_negatifs': float(row['pct_negatifs']),
+                'statut': ' OK' if row['pct_negatifs'] <= 10 else ' Avertissement' if row['pct_negatifs'] <= 25 else ' Bloquant'
+            })
+    return pd.DataFrame(resultats)
+
+def get_verdict_label(scores_public, criteres):
+    critique_bloquant = criteres[criteres['pct_negatifs'] > 25] if not criteres.empty else pd.DataFrame()
+    critique_avert = criteres[criteres['pct_negatifs'] > 10] if not criteres.empty else pd.DataFrame()
+    c1_ok = len(critique_bloquant) == 0 and len(critique_avert) < 2
+    c2_ok = all(scores_public['valide']) if not scores_public.empty else False
+    return {'verdict': c1_ok and c2_ok, 'c1_ok': c1_ok, 'c2_ok': c2_ok, 'nb_bloquants': len(critique_bloquant), 'nb_avertissements': len(critique_avert)}
+
+
 # ============================================================
 # NAVIGATION
 # ============================================================
@@ -466,18 +551,16 @@ with col_nav1:
     if st.button(" Tableau de bord", use_container_width=True):
         st.session_state.page = 'dashboard'
         st.rerun()
-# ===== TÂCHE 20 : Bouton Label Vivre ajouté dans la navigation =====
 with col_nav2:
     if st.button(" Label Vivre", use_container_width=True):
         st.session_state.page = 'label'
         st.rerun()
-# ===================================================================
 with col_nav3:
     if st.button(" Données brutes", use_container_width=True):
         st.session_state.page = 'donnees'
         st.rerun()
 with col_nav4:
-    if st.button("⬇ Export", use_container_width=True):
+    if st.button(" Export", use_container_width=True):
         st.session_state.page = 'export'
         st.rerun()
 with col_nav5:
@@ -496,346 +579,166 @@ st.markdown("---")
 df_structures = get_structures()
 annees_dispo = get_annees()
 
-# Construire les filtres actifs selon le profil
 with st.container():
     st.markdown("<div class='filtre-bar'>", unsafe_allow_html=True)
-
     if st.session_state.profil == "admin":
-        # ADMIN : peut choisir n'importe quel établissement
         col_f1, col_f2, col_f3 = st.columns([3, 2, 1])
-
         with col_f1:
-            options_etab = [" Tous les établissements"] + [
-                f"{row['Structure']} ({row['Type']})"
-                for _, row in df_structures.iterrows()
-            ]
-            choix_etab = st.selectbox(
-                " Établissement",
-                options=options_etab,
-                index=0,
-                key="select_etab"
-            )
+            options_etab = [" Tous les établissements"] + [f"{row['Structure']} ({row['Type']})" for _, row in df_structures.iterrows()]
+            choix_etab = st.selectbox(" Établissement", options=options_etab, index=0, key="select_etab")
             if choix_etab == " Tous les établissements":
                 st.session_state.filtre_structure = None
             else:
                 nom_choisi = choix_etab.split(" (")[0]
                 row_choisi = df_structures[df_structures['Structure'] == nom_choisi]
-                if not row_choisi.empty:
-                    st.session_state.filtre_structure = int(row_choisi.iloc[0]['Id_structure'])
-
+                if not row_choisi.empty: st.session_state.filtre_structure = int(row_choisi.iloc[0]['Id_structure'])
         with col_f2:
             options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
             choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee")
             st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
-
         with col_f3:
             st.markdown("<br>", unsafe_allow_html=True)
-            # Infos sur l'établissement sélectionné
             if st.session_state.filtre_structure:
                 row_info = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
-                if not row_info.empty:
-                    st.caption(f" {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
-
+                if not row_info.empty: st.caption(f"📍 {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
     else:
-        # ÉTABLISSEMENT : voit uniquement son contexte, pas de choix
         id_s = st.session_state.filtre_structure
         if id_s:
             row_etab = df_structures[df_structures['Id_structure'] == id_s]
             if not row_etab.empty:
-                nom = row_etab.iloc[0]['Structure']
-                type_s = row_etab.iloc[0]['Type']
-                dept = row_etab.iloc[0]['Département']
-                region = row_etab.iloc[0]['Région']
-
                 col_e1, col_e2 = st.columns([3, 2])
-                with col_e1:
-                    st.markdown(f"** {nom}** &nbsp;|&nbsp; {type_s} &nbsp;|&nbsp;  {dept}, {region}")
+                with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp; 📍 {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
                 with col_e2:
                     options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
                     choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee_etab")
                     st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Alerte données simulées
-st.markdown("""
-<div class='alerte-simu'>
-     <strong>Données simulées</strong> — La répartition par établissement est temporaire en attente
-    de l'identification LimeSurvey. Les résultats seront mis à jour dès réception des informations client.
-</div>
-""", unsafe_allow_html=True)
+st.markdown("""<div class='alerte-simu'><strong>⚠️ Données simulées</strong> — La répartition par établissement est temporaire en attente de l'identification LimeSurvey.</div>""", unsafe_allow_html=True)
 
-# Récupérer les filtres actifs
 id_structure_actif = st.session_state.filtre_structure
 annee_active = st.session_state.filtre_annee
 
-# ============================================================
-# ============================================================
-# ===== TÂCHE 20 : ALGORITHME LABEL VIVRE ===================
-# ============================================================
-# Règles issues du PDF de restitution (page 6) :
-# Critère 1 — Critères essentiels :
-#   - Aucune question essentielle ne dépasse 10% de réponses négatives
-#   - Aucune question essentielle ne dépasse 25% sur un seul critère
-# Critère 2 — Expérience positive :
-#   - Moyenne pondérée >= 7/10 pour chacun des 3 publics
-#   - Formule conversion : score_10 = ((score_moyen_4 - 1) / 3) * 10
-# ============================================================
-
-# Liste des questions essentielles (critères bloquants du PDF)
-QUESTIONS_ESSENTIELLES = [
-    "Je me sens en sécurité",
-    "Je me sens respecté(e) en tant que personne",
-    "Mon intégrité corporelle est respectée",
-    "Je me sens respecté(e) physiquement",
-    "Je mange toujours à ma faim",
-    "Je me sens propre au quotidien",
-    "L'établissement me semble vigilant face aux risques de mauvais traitement",
-    "Je me sens en sécurité dans la résidence",
-    "Je me sens en sécurité dans l'habitat partagé",
-    "Je me sens en sécurité dans mon logement",
-    "L'habitat partagé me semble vigilant face aux risques de mauvais traitement",
-]
-
-def get_score_par_public(id_structure, annee):
-    """
-    Calcul de la moyenne pondérée /10 par public.
-    Formule PDF : score_10 = ((score_moyen_4 - 1) / 3) * 10
-    """
-    conn = get_connexion()
-    where, params = build_filtre(id_structure, annee)
-    query = f"""
-        SELECT
-            CASE
-                WHEN "Question_Formulation" LIKE '%résident%'
-                  OR "Question_Formulation" LIKE '%habitant%' THEN 'Résidents'
-                WHEN "Question_Formulation" LIKE '%proche%'   THEN 'Proches'
-                WHEN "Question_Formulation" LIKE '%équipe%'
-                  OR "Question_Formulation" LIKE '%salarié%'  THEN 'Équipe'
-                ELSE NULL
-            END AS public,
-            ROUND(AVG(CAST("Score" AS FLOAT)), 4) AS score_moyen_4,
-            COUNT(DISTINCT "ID de la réponse") AS nb_repondants
-        FROM DONNEES_LIMESURVEY_NETTOYEES
-        WHERE {where}
-        AND "Question_Formulation" NOT LIKE 'Durée%'
-        AND "Question_Formulation" NOT LIKE 'Commentaire%'
-        AND "Question_Formulation" NOT LIKE 'Temps%'
-        GROUP BY public
-        HAVING public IS NOT NULL
-        ORDER BY public
-    """
-    df = pd.read_sql_query(query, conn, params=params)
-    # Conversion en /10 selon formule PDF
-    df['score_10'] = ((df['score_moyen_4'] - 1) / 3 * 10).round(2)
-    df['valide'] = df['score_10'] >= 7.0
-    return df
-
-def get_criteres_essentiels(id_structure, annee):
-    """
-    Calcul du % de réponses négatives (score 1 ou 2) pour chaque critère essentiel.
-    Seuils PDF : > 10% = avertissement, > 25% = bloquant.
-    """
-    conn = get_connexion()
-    where, params = build_filtre(id_structure, annee)
-
-    resultats = []
-    for question in QUESTIONS_ESSENTIELLES:
-        query = f"""
-            SELECT
-                "{question}" AS question_label,
-                COUNT(*) AS total,
-                SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1.0, 2.0) THEN 1 ELSE 0 END) AS nb_negatifs,
-                ROUND(
-                    100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1.0, 2.0) THEN 1 ELSE 0 END) / COUNT(*),
-                1) AS pct_negatifs
-            FROM DONNEES_LIMESURVEY_NETTOYEES
-            WHERE {where}
-            AND "Question_Formulation" LIKE ?
-            AND CAST("Score" AS FLOAT) IN (1.0, 2.0, 3.0, 4.0)
-        """
-        p = params + [f"%{question}%"]
-        df = pd.read_sql_query(query, conn, params=p)
-        if not df.empty and df.iloc[0]['total'] > 0:
-            row = df.iloc[0]
-            resultats.append({
-                'question': question,
-                'total': int(row['total']),
-                'nb_negatifs': int(row['nb_negatifs']),
-                'pct_negatifs': float(row['pct_negatifs']),
-                'statut': (
-                    ' OK' if row['pct_negatifs'] <= 10
-                    else ' Avertissement' if row['pct_negatifs'] <= 25
-                    else ' Bloquant'
-                )
-            })
-    return pd.DataFrame(resultats)
-
-def get_verdict_label(scores_public, criteres):
-    """
-    Verdict final : OUI ou NON le label est obtenu.
-    Critère 1 : aucun critère essentiel > 10% ET aucun > 25%
-    Critère 2 : tous les publics >= 7/10
-    """
-    # Critère 1
-    critique_bloquant = criteres[criteres['pct_negatifs'] > 25] if not criteres.empty else pd.DataFrame()
-    critique_avert = criteres[criteres['pct_negatifs'] > 10] if not criteres.empty else pd.DataFrame()
-    c1_ok = len(critique_bloquant) == 0 and len(critique_avert) < 2
-
-    # Critère 2
-    c2_ok = all(scores_public['valide']) if not scores_public.empty else False
-
-    return {
-        'verdict': c1_ok and c2_ok,
-        'c1_ok': c1_ok,
-        'c2_ok': c2_ok,
-        'nb_bloquants': len(critique_bloquant),
-        'nb_avertissements': len(critique_avert)
-    }
 
 # ============================================================
-
-# PAGE DASHBOARD
+# PAGE DASHBOARD (DESIGN PDF VIA ONGLETS)
 # ============================================================
 if st.session_state.page == 'dashboard':
 
     nps = get_nps(id_structure_actif, annee_active)
     scores_public = get_scores_public(id_structure_actif, annee_active)
 
-    # Titre contextuel
     if id_structure_actif:
         row_actif = df_structures[df_structures['Id_structure'] == id_structure_actif]
         nom_actif = row_actif.iloc[0]['Structure'] if not row_actif.empty else "Établissement"
         annee_label = str(annee_active) if annee_active else "toutes années"
-        st.markdown(f"<div class='section-title'> Résultats — {nom_actif} · {annee_label}</div>", unsafe_allow_html=True)
+        st.markdown(f"<div class='section-title'> Rapport — {nom_actif} · {annee_label}</div>", unsafe_allow_html=True)
     else:
-        st.markdown("<div class='section-title'> Résultats — Tous les établissements</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'> Rapport — Tous les établissements</div>", unsafe_allow_html=True)
 
-    # KPIs
-    col1, col2, col3, col4, col5 = st.columns(5)
-    couleur_nps = "#6BBFB5" if nps['NPS'] >= 30 else "#E8706A"
+    # CRÉATION DES ONGLETS
+    tab_synthese, tab_thematique, tab_verbatim, tab_methodo = st.tabs([
+        " Résultats synthétiques", 
+        " Résultats thématiques", 
+        " Verbatim", 
+        " Méthodologie"
+    ])
 
-    with col1:
-        st.markdown(f"""<div class='kpi-card'>
-            <div class='kpi-label'>NPS Global</div>
-            <div class='kpi-value' style='color:{couleur_nps};'>{nps['NPS']}</div>
-            <div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
-    with col2:
-        st.markdown(f"""<div class='kpi-card'>
-            <div class='kpi-label'> Promoteurs</div>
-            <div class='kpi-value' style='color:#6BBFB5;'>{nps['pct_promoteurs']}%</div>
-            <div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
-    with col3:
-        st.markdown(f"""<div class='kpi-card'>
-            <div class='kpi-label'> Passifs</div>
-            <div class='kpi-value' style='color:#F5A623;'>{nps['pct_passifs']}%</div>
-            <div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
-    with col4:
-        st.markdown(f"""<div class='kpi-card'>
-            <div class='kpi-label'> Détracteurs</div>
-            <div class='kpi-value' style='color:#E8706A;'>{nps['pct_detracteurs']}%</div>
-            <div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
-    with col5:
-        st.markdown(f"""<div class='kpi-card'>
-            <div class='kpi-label' Réponses</div>
-            <div class='kpi-value' style='color:#5C5C5C;'>{int(nps['total']):,}</div>
-            <div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
+    # ONGLET 1 : SYNTHÈSE
+    with tab_synthese:
+        col1, col2, col3, col4, col5 = st.columns(5)
+        couleur_nps = "#6BBFB5" if nps['NPS'] >= 30 else "#E8706A"
 
-    st.markdown("<br>", unsafe_allow_html=True)
+        with col1:
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{nps['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>😍 Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
+        with col3:
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>😐 Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps['pct_passifs']}%</div><div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
+        with col4:
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>😡 Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps['pct_detracteurs']}%</div><div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
+        with col5:
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>📝 Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
 
-    # Graphiques ligne 1
-    col_left, col_right = st.columns(2)
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_left, col_right = st.columns(2)
 
-    with col_left:
-        st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
-        df_pub = scores_public[scores_public['public'] != 'Autre'].copy()
-        couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
-        fig_bar = px.bar(
-            df_pub, x='public', y='score_moyen', color='public',
-            color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4'
-        )
-        fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
-        fig_bar.update_layout(
-            showlegend=False, plot_bgcolor='white', paper_bgcolor='white',
-            yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='',
-            title_font_family='Georgia', height=350
-        )
-        st.plotly_chart(fig_bar, use_container_width=True)
+        with col_left:
+            st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
+            df_pub = scores_public[scores_public['public'] != 'Autre'].copy()
+            couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
+            fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
+            fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
+            fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
+            st.plotly_chart(fig_bar, use_container_width=True)
 
-    with col_right:
-        st.markdown("<div class='section-title'> Répartition NPS</div>", unsafe_allow_html=True)
-        fig_pie = go.Figure(data=[go.Pie(
-            labels=['Promoteurs', 'Passifs', 'Détracteurs'],
-            values=[nps['pct_promoteurs'], nps['pct_passifs'], nps['pct_detracteurs']],
-            hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A']
-        )])
-        fig_pie.update_layout(
-            title='Répartition des répondants', title_font_family='Georgia',
-            paper_bgcolor='white', height=350,
-            annotations=[dict(text=f'NPS<br>{nps["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)]
-        )
-        st.plotly_chart(fig_pie, use_container_width=True)
+        with col_right:
+            st.markdown("<div class='section-title'> Répartition NPS</div>", unsafe_allow_html=True)
+            fig_pie = go.Figure(data=[go.Pie(labels=['Promoteurs', 'Passifs', 'Détracteurs'], values=[nps['pct_promoteurs'], nps['pct_passifs'], nps['pct_detracteurs']], hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A'])])
+            fig_pie.update_layout(title='Répartition des répondants', title_font_family='Georgia', paper_bgcolor='white', height=350, annotations=[dict(text=f'NPS<br>{nps["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)])
+            st.plotly_chart(fig_pie, use_container_width=True)
 
-    # Graphiques ligne 2 — Top et Flop questions
-    col_top, col_flop = st.columns(2)
+    # ONGLET 2 : THÉMATIQUES
+    with tab_thematique:
+        col_top, col_flop = st.columns(2)
+        with col_top:
+            st.markdown("<div class='section-title'> Top 10 meilleures questions</div>", unsafe_allow_html=True)
+            top_q = get_top_questions(id_structure_actif, annee_active)
+            top_q['question_courte'] = top_q['question'].str[:55] + '...'
+            fig_top = px.bar(top_q, x='score_moyen', y='question_courte', orientation='h', color='score_moyen', color_continuous_scale=['#F5A623', '#6BBFB5'])
+            fig_top.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=400, showlegend=False, coloraxis_showscale=False, yaxis_title='', xaxis=dict(range=[0, 4]), margin=dict(l=10))
+            st.plotly_chart(fig_top, use_container_width=True)
 
-    with col_top:
-        st.markdown("<div class='section-title'> Top 10 meilleures questions</div>", unsafe_allow_html=True)
-        top_q = get_top_questions(id_structure_actif, annee_active)
-        top_q['question_courte'] = top_q['question'].str[:55] + '...'
-        fig_top = px.bar(
-            top_q, x='score_moyen', y='question_courte', orientation='h',
-            color='score_moyen', color_continuous_scale=['#F5A623', '#6BBFB5']
-        )
-        fig_top.update_layout(
-            plot_bgcolor='white', paper_bgcolor='white', height=400,
-            showlegend=False, coloraxis_showscale=False,
-            yaxis_title='', xaxis=dict(range=[0, 4]),
-            margin=dict(l=10)
-        )
-        st.plotly_chart(fig_top, use_container_width=True)
+        with col_flop:
+            st.markdown("<div class='section-title'> Top 10 points d'amélioration</div>", unsafe_allow_html=True)
+            flop_q = get_flop_questions(id_structure_actif, annee_active)
+            flop_q['question_courte'] = flop_q['question'].str[:55] + '...'
+            fig_flop = px.bar(flop_q, x='score_moyen', y='question_courte', orientation='h', color='score_moyen', color_continuous_scale=['#E8706A', '#F5A623'])
+            fig_flop.update_layout(plot_bgcolor='white', paper_bgcolor='white', height=400, showlegend=False, coloraxis_showscale=False, yaxis_title='', xaxis=dict(range=[0, 4]), margin=dict(l=10))
+            st.plotly_chart(fig_flop, use_container_width=True)
 
-    with col_flop:
-        st.markdown("<div class='section-title'> Top 10 points d'amélioration</div>", unsafe_allow_html=True)
-        flop_q = get_flop_questions(id_structure_actif, annee_active)
-        flop_q['question_courte'] = flop_q['question'].str[:55] + '...'
-        fig_flop = px.bar(
-            flop_q, x='score_moyen', y='question_courte', orientation='h',
-            color='score_moyen', color_continuous_scale=['#E8706A', '#F5A623']
-        )
-        fig_flop.update_layout(
-            plot_bgcolor='white', paper_bgcolor='white', height=400,
-            showlegend=False, coloraxis_showscale=False,
-            yaxis_title='', xaxis=dict(range=[0, 4]),
-            margin=dict(l=10)
-        )
-        st.plotly_chart(fig_flop, use_container_width=True)
+    # ONGLET 3 : VERBATIM
+    with tab_verbatim:
+        st.markdown("<div class='section-title'> Ce qu'ils nous ont dit</div>", unsafe_allow_html=True)
+        st.markdown("#### Retours des Résidents")
+        st.info("« C'est une bonne chose de faire cette enquête régulièrement. »")
+        st.info("« Cela me semble important de connaître les impressions de chacun. »")
+        st.markdown("#### Retours de l'Équipe")
+        st.warning("« Il manque toujours des questions précises sur l'inclusion, le fonctionnement du service... »")
 
+    # ONGLET 4 : MÉTHODOLOGIE
+    with tab_methodo:
+        st.markdown("<div class='section-title'>Méthodologie - Échantillons</div>", unsafe_allow_html=True)
+        col_m1, col_m2, col_m3 = st.columns(3)
+        with col_m1:
+            st.markdown("<div class='kpi-card' style='border-top: 5px solid #E8706A;'><h3 style='color:#E8706A;'>👴 Résidents</h3><p>Présentiel (Entretiens)</p><h2 style='color:#5C5C5C;'>44%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+        with col_m2:
+            st.markdown("<div class='kpi-card' style='border-top: 5px solid #6BBFB5;'><h3 style='color:#6BBFB5;'>👨‍👩‍👧 Proches</h3><p>Distanciel (Email)</p><h2 style='color:#5C5C5C;'>53%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+        with col_m3:
+            st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>👩‍⚕️ Équipe</h3><p>Distanciel (En ligne)</p><h2 style='color:#5C5C5C;'>99%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
 
 # ============================================================
 # PAGE DONNÉES BRUTES
 # ============================================================
 elif st.session_state.page == 'donnees':
     st.markdown("<div class='section-title'> Données brutes LimeSurvey</div>", unsafe_allow_html=True)
-
     limite = st.slider("Nombre de lignes à afficher", 10, 500, 100)
     df_brut = get_donnees_brutes(id_structure_actif, annee_active, limite)
-
-    score_filtre = st.multiselect(
-        "Filtrer par score", [1.0, 2.0, 3.0, 4.0], default=[1.0, 2.0, 3.0, 4.0]
-    )
+    score_filtre = st.multiselect("Filtrer par score", [1.0, 2.0, 3.0, 4.0], default=[1.0, 2.0, 3.0, 4.0])
     if score_filtre:
         df_brut = df_brut[df_brut['Score'].astype(float).isin(score_filtre)]
-
     st.dataframe(df_brut, use_container_width=True, height=400)
     st.info(f" {len(df_brut)} lignes affichées")
-
 
 # ============================================================
 # PAGE EXPORT
 # ============================================================
 elif st.session_state.page == 'export':
-    st.markdown("<div class='section-title'>⬇ Export des données</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'> Export des données</div>", unsafe_allow_html=True)
+
+    # --- L'astuce pour le PDF ---
+    st.info("💡 **Astuce PDF (Rapport) :** Pour générer un rapport PDF parfait, allez dans l'onglet **'Tableau de bord'** et appuyez sur **`Ctrl + P`** (ou `Cmd + P` sur Mac), puis choisissez la destination **'Enregistrer au format PDF'**. Le design a été spécialement codé pour ça !")
+    st.markdown("---")
 
     if id_structure_actif:
         row_actif = df_structures[df_structures['Id_structure'] == id_structure_actif]
@@ -846,55 +749,29 @@ elif st.session_state.page == 'export':
     annee_export = str(annee_active) if annee_active else "toutes_annees"
 
     col1, col2 = st.columns(2)
-
     with col1:
         st.markdown("###  Exporter les résultats NPS")
         nps = get_nps(id_structure_actif, annee_active)
-        df_nps = pd.DataFrame([{
-            'Indicateur': 'NPS Global', 'Valeur': nps['NPS']
-        }, {
-            'Indicateur': '% Promoteurs', 'Valeur': nps['pct_promoteurs']
-        }, {
-            'Indicateur': '% Passifs', 'Valeur': nps['pct_passifs']
-        }, {
-            'Indicateur': '% Détracteurs', 'Valeur': nps['pct_detracteurs']
-        }])
+        df_nps = pd.DataFrame([{'Indicateur': 'NPS Global', 'Valeur': nps['NPS']}, {'Indicateur': '% Promoteurs', 'Valeur': nps['pct_promoteurs']}, {'Indicateur': '% Passifs', 'Valeur': nps['pct_passifs']}, {'Indicateur': '% Détracteurs', 'Valeur': nps['pct_detracteurs']}])
         csv_nps = df_nps.to_csv(index=False, encoding='utf-8')
-        st.download_button(
-            label="⬇ Télécharger NPS (CSV)",
-            data=csv_nps,
-            file_name=f"nps_{nom_export}_{annee_export}.csv",
-            mime="text/csv", use_container_width=True
-        )
+        st.download_button(label="⬇️ Télécharger NPS (CSV)", data=csv_nps, file_name=f"nps_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
     with col2:
         st.markdown("###  Exporter les scores par public")
         scores_public = get_scores_public(id_structure_actif, annee_active)
         csv_public = scores_public.to_csv(index=False, encoding='utf-8')
-        st.download_button(
-            label="⬇ Télécharger scores par public (CSV)",
-            data=csv_public,
-            file_name=f"scores_public_{nom_export}_{annee_export}.csv",
-            mime="text/csv", use_container_width=True
-        )
+        st.download_button(label="⬇️ Télécharger scores par public (CSV)", data=csv_public, file_name=f"scores_public_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
     st.markdown("###  Exporter les données brutes")
     df_brut = get_donnees_brutes(id_structure_actif, annee_active, 500)
     csv_brut = df_brut.to_csv(index=False, encoding='utf-8')
-    st.download_button(
-        label="⬇ Télécharger données brutes (CSV)",
-        data=csv_brut,
-        file_name=f"donnees_brutes_{nom_export}_{annee_export}.csv",
-        mime="text/csv", use_container_width=True
-    )
+    st.download_button(label="⬇️ Télécharger données brutes (CSV)", data=csv_brut, file_name=f"donnees_brutes_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
-# PAGE LABEL VIVRE — TÂCHE 20
+# ============================================================
+# PAGE LABEL VIVRE 
 # ============================================================
 elif st.session_state.page == 'label':
-
     st.markdown("<div class='section-title'> Algorithme Label Vivre</div>", unsafe_allow_html=True)
-
-    # Titre contextuel
     if id_structure_actif:
         row_actif = df_structures[df_structures['Id_structure'] == id_structure_actif]
         nom_actif = row_actif.iloc[0]['Structure'] if not row_actif.empty else "Établissement"
@@ -903,45 +780,18 @@ elif st.session_state.page == 'label':
     else:
         st.markdown("**Analyse globale — tous les établissements**")
 
-    # Calcul des données
     scores_public = get_score_par_public(id_structure_actif, annee_active)
     criteres = get_criteres_essentiels(id_structure_actif, annee_active)
     verdict = get_verdict_label(scores_public, criteres)
 
-    # ---- VERDICT PRINCIPAL ----
     st.markdown("<br>", unsafe_allow_html=True)
     if verdict['verdict']:
-        st.markdown("""
-        <div style='background:#E8F8F0; border:2px solid #6BBFB5; border-radius:15px;
-                    padding:30px; text-align:center; margin-bottom:20px;'>
-            <div style='font-size:3rem;'></div>
-            <div style='font-size:2rem; font-weight:bold; color:#0F6E56; font-family:Georgia;'>
-                Label Vivre OBTENU
-            </div>
-            <div style='color:#0F6E56; margin-top:8px;'>
-                Les deux critères sont validés — l'établissement est éligible au label
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div style='background:#E8F8F0; border:2px solid #6BBFB5; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#0F6E56; font-family:Georgia;'>🏆 Label Vivre OBTENU</div><div style='color:#0F6E56; margin-top:8px;'>Les deux critères sont validés — l'établissement est éligible au label</div></div>""", unsafe_allow_html=True)
     else:
-        st.markdown("""
-        <div style='background:#FEF0F0; border:2px solid #E8706A; border-radius:15px;
-                    padding:30px; text-align:center; margin-bottom:20px;'>
-            <div style='font-size:3rem;'></div>
-            <div style='font-size:2rem; font-weight:bold; color:#A32D2D; font-family:Georgia;'>
-                Label Vivre NON OBTENU
-            </div>
-            <div style='color:#A32D2D; margin-top:8px;'>
-                Un ou plusieurs critères ne sont pas atteints
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown("""<div style='background:#FEF0F0; border:2px solid #E8706A; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#A32D2D; font-family:Georgia;'>❌ Label Vivre NON OBTENU</div><div style='color:#A32D2D; margin-top:8px;'>Un ou plusieurs critères ne sont pas atteints</div></div>""", unsafe_allow_html=True)
 
     st.markdown("<br>", unsafe_allow_html=True)
-
-    # ---- CRITÈRE 2 : SCORES PAR PUBLIC ----
-    st.markdown("<div class='section-title'> Critère 2 — Expérience positive (score ≥ 7/10)</div>",
-                unsafe_allow_html=True)
+    st.markdown("<div class='section-title'> Critère 2 — Expérience positive (score ≥ 7/10)</div>", unsafe_allow_html=True)
 
     if not scores_public.empty:
         cols = st.columns(len(scores_public))
@@ -949,105 +799,35 @@ elif st.session_state.page == 'label':
             with cols[i]:
                 couleur = "#6BBFB5" if row['valide'] else "#E8706A"
                 icone = "✅" if row['valide'] else "❌"
-                st.markdown(f"""
-                <div class='kpi-card'>
-                    <div class='kpi-label'>{icone} {row['public']}</div>
-                    <div class='kpi-value' style='color:{couleur};'>{row['score_10']}</div>
-                    <div class='kpi-label'>/ 10 &nbsp;·&nbsp; {row['nb_repondants']} répondants</div>
-                    <div style='margin-top:8px; font-size:0.8rem; color:#888;'>
-                        (score brut : {row['score_moyen_4']}/4)
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-        # Barre de progression par public
+                st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>{icone} {row['public']}</div><div class='kpi-value' style='color:{couleur};'>{row['score_10']}</div><div class='kpi-label'>/ 10 &nbsp;·&nbsp; {row['nb_repondants']} répondants</div><div style='margin-top:8px; font-size:0.8rem; color:#888;'>(score brut : {row['score_moyen_4']}/4)</div></div>""", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         for _, row in scores_public.iterrows():
             couleur = "#6BBFB5" if row['valide'] else "#E8706A"
             pct = min(row['score_10'] / 10 * 100, 100)
-            st.markdown(f"""
-            <div style='margin:8px 0;'>
-                <div style='display:flex; justify-content:space-between; margin-bottom:4px;'>
-                    <span style='font-size:0.9rem; color:#5C5C5C;'>{row['public']}</span>
-                    <span style='font-size:0.9rem; font-weight:bold; color:{couleur};'>{row['score_10']}/10</span>
-                </div>
-                <div style='background:#eee; border-radius:10px; height:12px; position:relative;'>
-                    <div style='background:{couleur}; width:{pct}%; height:12px; border-radius:10px;'></div>
-                    <div style='position:absolute; left:70%; top:-2px; height:16px; width:2px;
-                                background:#F5A623; border-radius:2px;' title='Seuil 7/10'></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div style='margin:8px 0;'><div style='display:flex; justify-content:space-between; margin-bottom:4px;'><span style='font-size:0.9rem; color:#5C5C5C;'>{row['public']}</span><span style='font-size:0.9rem; font-weight:bold; color:{couleur};'>{row['score_10']}/10</span></div><div style='background:#eee; border-radius:10px; height:12px; position:relative;'><div style='background:{couleur}; width:{pct}%; height:12px; border-radius:10px;'></div><div style='position:absolute; left:70%; top:-2px; height:16px; width:2px; background:#F5A623; border-radius:2px;' title='Seuil 7/10'></div></div></div>""", unsafe_allow_html=True)
         st.caption("🟡 La barre orange indique le seuil minimum de 7/10")
     else:
         st.warning("Aucune donnée disponible pour cet établissement.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-
-    # ---- CRITÈRE 1 : CRITÈRES ESSENTIELS ----
-    st.markdown("<div class='section-title'> Critère 1 — Critères essentiels (% réponses négatives)</div>",
-                unsafe_allow_html=True)
+    st.markdown("<div class='section-title'> Critère 1 — Critères essentiels (% réponses négatives)</div>", unsafe_allow_html=True)
     st.caption("Règle : aucun critère ne doit dépasser 10% de réponses négatives · aucun ne doit dépasser 25%")
 
     if not criteres.empty:
         for _, row in criteres.iterrows():
-            couleur = (
-                "#6BBFB5" if row['pct_negatifs'] <= 10
-                else "#F5A623" if row['pct_negatifs'] <= 25
-                else "#E8706A"
-            )
+            couleur = "#6BBFB5" if row['pct_negatifs'] <= 10 else "#F5A623" if row['pct_negatifs'] <= 25 else "#E8706A"
             pct_affiche = min(row['pct_negatifs'], 100)
-            st.markdown(f"""
-            <div style='margin:10px 0; padding:12px; background:white;
-                        border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.06);'>
-                <div style='display:flex; justify-content:space-between; margin-bottom:6px;'>
-                    <span style='font-size:0.85rem; color:#5C5C5C;'>{row['statut']} &nbsp; {row['question']}</span>
-                    <span style='font-size:0.85rem; font-weight:bold; color:{couleur};'>
-                        {row['pct_negatifs']}% négatifs ({row['nb_negatifs']}/{row['total']})
-                    </span>
-                </div>
-                <div style='background:#eee; border-radius:6px; height:8px; position:relative;'>
-                    <div style='background:{couleur}; width:{pct_affiche}%; height:8px; border-radius:6px;'></div>
-                    <div style='position:absolute; left:10%; top:-2px; height:12px; width:2px;
-                                background:#888; border-radius:2px;' title='Seuil 10%'></div>
-                    <div style='position:absolute; left:25%; top:-2px; height:12px; width:2px;
-                                background:#E8706A; border-radius:2px;' title='Seuil 25%'></div>
-                </div>
-                <div style='display:flex; justify-content:space-between; margin-top:2px;'>
-                    <span style='font-size:0.7rem; color:#aaa;'>0%</span>
-                    <span style='font-size:0.7rem; color:#888;'>│10%</span>
-                    <span style='font-size:0.7rem; color:#E8706A;'>│25%</span>
-                    <span style='font-size:0.7rem; color:#aaa;'>100%</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f"""<div style='margin:10px 0; padding:12px; background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.06);'><div style='display:flex; justify-content:space-between; margin-bottom:6px;'><span style='font-size:0.85rem; color:#5C5C5C;'>{row['statut']} &nbsp; {row['question']}</span><span style='font-size:0.85rem; font-weight:bold; color:{couleur};'>{row['pct_negatifs']}% négatifs ({row['nb_negatifs']}/{row['total']})</span></div><div style='background:#eee; border-radius:6px; height:8px; position:relative;'><div style='background:{couleur}; width:{pct_affiche}%; height:8px; border-radius:6px;'></div><div style='position:absolute; left:10%; top:-2px; height:12px; width:2px; background:#888; border-radius:2px;' title='Seuil 10%'></div><div style='position:absolute; left:25%; top:-2px; height:12px; width:2px; background:#E8706A; border-radius:2px;' title='Seuil 25%'></div></div><div style='display:flex; justify-content:space-between; margin-top:2px;'><span style='font-size:0.7rem; color:#aaa;'>0%</span><span style='font-size:0.7rem; color:#888;'>│10%</span><span style='font-size:0.7rem; color:#E8706A;'>│25%</span><span style='font-size:0.7rem; color:#aaa;'>100%</span></div></div>""", unsafe_allow_html=True)
     else:
         st.warning("Aucun critère essentiel trouvé pour cet établissement.")
 
-    # ---- RÉCAPITULATIF ----
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'> Récapitulatif</div>", unsafe_allow_html=True)
-
+    st.markdown("<div class='section-title'>📝 Récapitulatif</div>", unsafe_allow_html=True)
     col_r1, col_r2 = st.columns(2)
     with col_r1:
         icone_c1 = "✅" if verdict['c1_ok'] else "❌"
-        st.markdown(f"""
-        <div class='kpi-card'>
-            <div class='kpi-label'>Critère 1 — Critères essentiels</div>
-            <div class='kpi-value'>{icone_c1}</div>
-            <div class='kpi-label'>
-                {verdict['nb_bloquants']} bloquant(s) · {verdict['nb_avertissements']} avertissement(s)
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Critère 1 — Critères essentiels</div><div class='kpi-value'>{icone_c1}</div><div class='kpi-label'>{verdict['nb_bloquants']} bloquant(s) · {verdict['nb_avertissements']} avertissement(s)</div></div>""", unsafe_allow_html=True)
     with col_r2:
         icone_c2 = "✅" if verdict['c2_ok'] else "❌"
         publics_ok = scores_public[scores_public['valide']]['public'].tolist() if not scores_public.empty else []
-        st.markdown(f"""
-        <div class='kpi-card'>
-            <div class='kpi-label'>Critère 2 — Expérience positive</div>
-            <div class='kpi-value'>{icone_c2}</div>
-            <div class='kpi-label'>{len(publics_ok)}/3 publics ≥ 7/10</div>
-        </div>
-        """, unsafe_allow_html=True)
-# =====
+        st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Critère 2 — Expérience positive</div><div class='kpi-value'>{icone_c2}</div><div class='kpi-label'>{len(publics_ok)}/3 publics ≥ 7/10</div></div>""", unsafe_allow_html=True)
