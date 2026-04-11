@@ -814,7 +814,9 @@ elif st.session_state.page == 'donnees':
     df_brut = get_donnees_brutes(id_structure_actif, annee_active, limite)
     score_filtre = st.multiselect("Filtrer par score", [1.0, 2.0, 3.0, 4.0], default=[1.0, 2.0, 3.0, 4.0])
     if score_filtre:
-        df_brut = df_brut[df_brut['Score'].astype(float).isin(score_filtre)]
+        df_brut['Score'] = pd.to_numeric(df_brut['Score'], errors='coerce')
+        df_brut = df_brut.dropna(subset=['Score'])
+        df_brut = df_brut[df_brut['Score'].isin(score_filtre)]
     st.dataframe(df_brut, use_container_width=True, height=400)
     st.info(f" {len(df_brut)} lignes affichées")
 
