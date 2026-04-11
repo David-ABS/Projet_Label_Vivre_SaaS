@@ -89,6 +89,26 @@ st.markdown("""
             print-color-adjust: exact !important;
         }
     }
+  div.stButton > button,
+div[data-testid="stFormSubmitButton"] > button,
+button[kind="primary"],
+button[kind="secondary"] {
+    background-color: #E65A5A !important;
+    color: white !important;
+    border-radius: 10px !important;
+    height: 45px !important;
+    font-weight: bold !important;
+    border: none !important;
+}
+
+div.stButton > button:hover,
+div[data-testid="stFormSubmitButton"] > button:hover,
+button[kind="primary"]:hover,
+button[kind="secondary"]:hover {
+    background-color: #cc4f4f !important;
+    color: white !important;
+    border: none !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -343,6 +363,7 @@ if st.session_state.identifiant is None:
     border-radius: 10px;
     text-align: center;
     font-weight: 500;
+    margin-bottom: 30px;
 ">
 L'accès à cette plateforme est réservé aux administrateurs et aux directions d'établissements.
 </div>
