@@ -844,18 +844,18 @@ elif st.session_state.page == 'export':
         nps = get_nps(id_structure_actif, annee_active)
         df_nps = pd.DataFrame([{'Indicateur': 'NPS Global', 'Valeur': nps['NPS']}, {'Indicateur': '% Promoteurs', 'Valeur': nps['pct_promoteurs']}, {'Indicateur': '% Passifs', 'Valeur': nps['pct_passifs']}, {'Indicateur': '% Détracteurs', 'Valeur': nps['pct_detracteurs']}])
         csv_nps = df_nps.to_csv(index=False, encoding='utf-8')
-        st.download_button(label="⬇️ Télécharger NPS (CSV)", data=csv_nps, file_name=f"nps_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
+        st.download_button(label="Télécharger NPS (CSV)", data=csv_nps, file_name=f"nps_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
     with col2:
         st.markdown("###  Exporter les scores par public")
         scores_public = get_scores_public(id_structure_actif, annee_active)
         csv_public = scores_public.to_csv(index=False, encoding='utf-8')
-        st.download_button(label="⬇️ Télécharger scores par public (CSV)", data=csv_public, file_name=f"scores_public_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
+        st.download_button(label="Télécharger scores par public (CSV)", data=csv_public, file_name=f"scores_public_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
     st.markdown("###  Exporter les données brutes")
     df_brut = get_donnees_brutes(id_structure_actif, annee_active, 500)
     csv_brut = df_brut.to_csv(index=False, encoding='utf-8')
-    st.download_button(label="⬇️ Télécharger données brutes (CSV)", data=csv_brut, file_name=f"donnees_brutes_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
+    st.download_button(label="Télécharger données brutes (CSV)", data=csv_brut, file_name=f"donnees_brutes_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
 # ============================================================
 # PAGE LABEL VIVRE 
