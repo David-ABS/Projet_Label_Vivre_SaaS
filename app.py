@@ -761,11 +761,12 @@ if st.session_state.page == 'dashboard':
         st.markdown("<div class='section-title'> Rapport — Tous les établissements</div>", unsafe_allow_html=True)
 
     # CRÉATION DES ONGLETS
-    tab_synthese, tab_thematique, tab_verbatim, tab_methodo = st.tabs([
+    tab_synthese, tab_thematique, tab_verbatim, tab_methodo, tab_ia = st.tabs([
         " Résultats synthétiques", 
         " Résultats thématiques", 
         " Verbatim", 
-        " Méthodologie"
+        " Méthodologie",
+        " Assistant IA"
     ])
 
     # ONGLET 1 : SYNTHÈSE
@@ -854,6 +855,57 @@ if st.session_state.page == 'dashboard':
             st.markdown("<div class='kpi-card' style='border-top: 5px solid #6BBFB5;'><h3 style='color:#6BBFB5;'>Proches</h3><p>Distanciel (Email)</p><h2 style='color:#5C5C5C;'>53%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
         with col_m3:
             st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>Équipe</h3><p>Distanciel (En ligne)</p><h2 style='color:#5C5C5C;'>99%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+    
+    # ONGLET 5 : ASSISTANT IA (LE "MAGIC TRICK" POUR LA SOUTENANCE)
+    with tab_ia:
+        st.markdown("<div class='section-title'> Assistant Conversationnel (Chat with Data)</div>", unsafe_allow_html=True)
+        st.info(" **Mode Démonstration SaaS :** Cet assistant illustre la future fonctionnalité 'Text-to-SQL' et 'Analyse Sémantique' (NLP) de la plateforme.")
+
+        # 1. On propose des questions cliquables
+        st.markdown("**Testez l'assistant en un clic :**")
+        col_q1, col_q2 = st.columns(2)
+        
+        # Variable de session pour stocker le clic sur un bouton
+        if 'demo_prompt' not in st.session_state:
+            st.session_state.demo_prompt = None
+
+        if col_q1.button("📈 Quel % des résidents > 75 ans en EHPAD ?"):
+            st.session_state.demo_prompt = "Quel pourcentage des personnes de plus de 75 ans en EHPAD ?"
+        if col_q2.button("🧠 Quelles évolutions dans les verbatims salariés ?"):
+            st.session_state.demo_prompt = "Quelles sont les principales évolutions observées dans les verbatims partagés par les salariés sur leurs conditions de travail ?"
+
+        # 2. La barre de chat (Interface ChatGPT native de Streamlit)
+        prompt = st.chat_input("Posez votre question à la base de données...")
+
+        # Si l'utilisateur a cliqué sur un bouton, on remplit le prompt avec la question du bouton
+        if st.session_state.demo_prompt:
+            prompt = st.session_state.demo_prompt
+            st.session_state.demo_prompt = None
+
+        # 3. Affichage de la conversation
+        if prompt:
+            # Bulle de l'utilisateur
+            with st.chat_message("user"):
+                st.write(prompt)
+
+            # Bulle de l'IA
+            with st.chat_message("assistant"):
+                import time
+                
+                # Détection des mots-clés pour lancer la bonne fausse réponse
+                if "75 ans" in prompt.lower() or "ehpad" in prompt.lower():
+                    with st.spinner("Traduction en SQL et interrogation de la base..."):
+                        time.sleep(1.5) # Faux temps de réflexion
+                    st.success("D'après l'analyse de la base de données, **42% des résidents** interrogés en EHPAD ont plus de 75 ans. La note moyenne de satisfaction globale pour cette tranche d'âge est de **3.4/4**.")
+                    st.caption("Requête générée par l'IA : `SELECT COUNT(*) FROM DONNEES_LIMESURVEY_NETTOYEES WHERE Type_structure = 'EHPAD' AND Age > 75...`")
+                
+                elif "évolution" in prompt.lower() or "salariés" in prompt.lower():
+                    with st.spinner("Analyse sémantique (NLP) des verbatims Équipe en cours..."):
+                        time.sleep(2.0)
+                    st.warning("J'ai synthétisé les retours de l'équipe. L'évolution principale porte sur le **manque de nuance entre les services**. \n\nLes mots-clés **'inclusion'** et **'management de proximité'** ressortent très souvent. Plusieurs salariés ont d'ailleurs souligné que le créneau de 30 minutes était insuffisant pour creuser véritablement ces sujets de fond.")
+                
+                else:
+                    st.write("Je suis un démonstrateur 🤖. Pour cette présentation, demandez-moi plutôt les statistiques socio-démographiques ou l'analyse des commentaires salariés !")
 
 # ============================================================
 # PAGE DONNÉES BRUTES
