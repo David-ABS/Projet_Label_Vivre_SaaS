@@ -1,14 +1,14 @@
 # Ne pas envoyer la base de données
-*.sqlite
-*.db
+#*.sqlite
+#*.db
 
 # Ne pas envoyer les fichiers Excel/CSV du CHU
-*.csv
-*.xlsx
+#*.csv
+#*.xlsx
 
 # Ne pas envoyer les environnements virtuels Python
 .venv/
 __pycache__/
 
 # Ne pas envoyer les fichiers de configuration sensibles
-creer_hash.py
+#creer_hash.py
