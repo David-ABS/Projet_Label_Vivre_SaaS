@@ -177,202 +177,35 @@ with col_text:
     )
 
 
-# COMPTES AUTORISÉS (AVEC TOUS TES 31 ETABLISSEMENTS)
+# ================================================================
+# Les comptes sont stockés dans la table UTILISATEUR de SQLite
+# Plus besoin de les coder en dur ici
+# ================================================================
+def charger_comptes():
+    """Charge tous les comptes depuis la table UTILISATEUR de SQLite."""
+    try:
+        chemin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+        conn = sqlite3.connect(chemin)
+        df = pd.read_sql_query(
+            "SELECT Id_utilisateur, Nom, Identifiant, Hash_mdp, Role, Id_structure FROM UTILISATEUR",
+            conn
+        )
+        conn.close()
+        comptes = {}
+        for _, row in df.iterrows():
+            comptes[str(row['Identifiant'])] = {
+                "hash": row['Hash_mdp'],
+                "profil": row['Role'],
+                "Id_structure": None if pd.isna(row['Id_structure']) else int(row['Id_structure']),
+                "nom_affiche": row['Nom'],
+                "id_utilisateur": int(row['Id_utilisateur'])
+            }
+        return comptes
+    except Exception as e:
+        st.error(f"Erreur chargement comptes : {e}")
+        return {}
 
-COMPTES_AUTORISES = {
-    "stephane_dardelet": {
-        "hash": "scrypt:32768:8:1$hKj4IHdUQMNBMYez$c6341c4be133c7b35f6cf656d99b758417de3a9576ee91b8ae332f0bc5d35b5f0daa09da94820500ba1832e3c57768c89b803cdea7376c3ecc1b69cfead068b0",
-        "profil": "admin",
-        "Id_structure": None,
-        "nom_affiche": "Stéphane Dardelet"
-    },
-    "saint_dominique": {
-        "hash": "scrypt:32768:8:1$AmgaTumzt7aghmq6$dda37b91037302dcaa7fc662461f98fe742874649857443f53e206d0dac73f361cad88e0ece825341c46cc3f89b6d11f2c6f031beaab7caf065225aea8f98750",
-        "profil": "etablissement",
-        "Id_structure": 1,
-        "nom_affiche": "Saint-Dominique"
-    },
-    "manon_cormier": {
-        "hash": "scrypt:32768:8:1$tZ2lnMnf39RfGwYw$e50a3d09402349034bdc06bbdc60ca3abaae93e659ca7184ce197b3b0518d93b181d41d7a30a7587534b208eab174e3bcd54198ae1f665cc14ea86a21b1786ce",
-        "profil": "etablissement",
-        "Id_structure": 2,
-        "nom_affiche": "Manon Cormier"
-    },
-    "marie_durand": {
-        "hash": "scrypt:32768:8:1$GcO2GiLn42JivSfy$e11f53f7462fa212d47126bbb8f01cb03f4a4f4b76413f7853718ae6a7a015570820eb81baa699b72fc5389d0d8069170989eb9470f89435b427c8ef7143f358",
-        "profil": "etablissement",
-        "Id_structure": 3,
-        "nom_affiche": "Marie Durand"
-    },
-    "villa_bontemps": {
-        "hash": "scrypt:32768:8:1$ROpSo0fyM3xajhFG$cf14f938ed960d41d77040399ca1c3ea456d0a939ebd21bf6bbae4ed57d27d969ccc0da866741573eeb04be3765afcf15602523ce47895e030371ed65ab9d35a",
-        "profil": "etablissement",
-        "Id_structure": 4,
-        "nom_affiche": "Villa Bontemps"
-    },
-    "ehpad_belves": {
-        "hash": "scrypt:32768:8:1$0ORJ28OKliIq9EDP$e7df6a0d6879857bf5642d4244cd7c95df14c0f53548077b6c3e935acaf322130811fe2f55dd9c6ad84d67acc2953b880c6e25dd16a30f17f8251f77df8501dc",
-        "profil": "etablissement",
-        "Id_structure": 5,
-        "nom_affiche": "EHPAD Belvès"
-    },
-    "richelot_lasse": {
-        "hash": "scrypt:32768:8:1$xmluxFwU6IMmfo2A$c6b9a8b8d49b84e64c0f007a0776cd0c391f09c0f16d7b267c6876581a111da4022b12e3443949ae0f4c3732c79b4c40248f422c5b74d7232423325d620d2c1a",
-        "profil": "etablissement",
-        "Id_structure": 6,
-        "nom_affiche": "Richelot-Lassé"
-    },
-    "korian_le_chalet": {
-        "hash": "scrypt:32768:8:1$nYvspGGsB27vZ0Zp$f8252dcd2f14235008b2fe4191fa84bcc64123b45a0ef088e17f6f73785bdb18673650d845b77eff25a0df4713fccf034cab288a958886ddda9bd7e7b788aa88",
-        "profil": "etablissement",
-        "Id_structure": 7,
-        "nom_affiche": "Korian Le Chalet"
-    },
-    "la_nougeraie": {
-        "hash": "scrypt:32768:8:1$dZkDYCwpT4msyRpe$440a515308d8d2d7c2202700fde504e0bb18f9fb8877fac919e0749b2ad441b76ad8cf59cb8ca34e67e96179433bc24ddb74c7ae52a489799cf948b1d28e1b2d",
-        "profil": "etablissement",
-        "Id_structure": 8,
-        "nom_affiche": "La Nougeraie"
-    },
-    "les_terrasses_de_beausejour": {
-        "hash": "scrypt:32768:8:1$H5jhPBObpdHN5ZvL$142e9ba71e60921d36769d83ad6dfa890d3b96d210af9bbba5b5dc9ab76c6b7d5581f378e17a5ba1ddefc8921d5cfe4796c23439f12aea05336178106c7a3ec7",
-        "profil": "etablissement",
-        "Id_structure": 9,
-        "nom_affiche": "Les Terrasses de Beauséjour"
-    },
-    "sherpa": {
-        "hash": "scrypt:32768:8:1$eWa6aduwg5fSLMMA$2d242ace9db7d53ea2372536136c35faefb5450c82c3107baa5f46ec883058de27838496c3fb66e99a495300798166de3ad2316b5d5fcf0756a7c2c2ef290842",
-        "profil": "etablissement",
-        "Id_structure": 10,
-        "nom_affiche": "Sherpa"
-    },
-    "champdeniers": {
-        "hash": "scrypt:32768:8:1$lJ9ChgTtTpHMG3wm$11dc607f3a6ae46a70260536766e142def0c03cc7dbeb6bf617b33ef414a0915f761f004752c0d52a6fc38accba13b9980a38548dc6cea5453d7051da2ee8a54",
-        "profil": "etablissement",
-        "Id_structure": 11,
-        "nom_affiche": "Champdeniers"
-    },
-    "saint_jacques": {
-        "hash": "scrypt:32768:8:1$1VHNx72IIhc5Kl1q$2b96b81bc7fbd4559b41dee07bffa5e6c8d2216478e2eaffc2a50c6fdfbfa3212ccdfb946dc8e7d5aaf2152ad234a0e7c8f23467a8b062b560a325484ba9ec4b",
-        "profil": "etablissement",
-        "Id_structure": 12,
-        "nom_affiche": "Saint-Jacques"
-    },
-    "la_favorite": {
-        "hash": "scrypt:32768:8:1$BQC0D7ug80jx55bI$b6bc3cfb1defce4efd944a7c5c453ef05cfbfcfc1ac5cab334c4be30d01c9426d9e50f3f1cf6614f8cf7121b6b08b7d1b54973535e67af9b07252a7b03ecce7a",
-        "profil": "etablissement",
-        "Id_structure": 13,
-        "nom_affiche": "La Favorite"
-    },
-    "mfa_les_clarines": {
-        "hash": "scrypt:32768:8:1$rB4R6XXTX2So6gQC$91d5cfe46d93041aea2c30daa4f14b4e35109e3ae04070b6bf5e0428b4c1ed18553dc75b3e849fc93807e115c6b9e6440d6dda1149e459abb9103fb3a5701301",
-        "profil": "etablissement",
-        "Id_structure": 14,
-        "nom_affiche": "MFA les Clarines"
-    },
-    "mfa_clos_saint_francois": {
-        "hash": "scrypt:32768:8:1$CX9aHlwLOlIFKfPU$86b7def42699bb6b215e3cdea8f3c9db3a1a9f790a3bf3a955528575de5054d597f6f4cc8e8ebb3b723fb040331cd6d09b630fef4e14314b211e0faa619e84a3",
-        "profil": "etablissement",
-        "Id_structure": 15,
-        "nom_affiche": "MFA Clos Saint-François"
-    },
-    "mfa_cheveux_d_ange": {
-        "hash": "scrypt:32768:8:1$BjQ7j9OTXNgu12Qz$61e05bef2e7041313e06aa304ac6af5c3831fcdee43c62879dec947f68d406368adb9fec7a8f190b07b65d9bf113c31226ac90a7ede54f90ff028aeb701a5bc6",
-        "profil": "etablissement",
-        "Id_structure": 16,
-        "nom_affiche": "MFA Cheveux d'Ange"
-    },
-    "l_isle_aux_fleurs": {
-        "hash": "scrypt:32768:8:1$yKWBBQSrdBkXpdBy$801a2c9514fb7c46c88bdb2d7a67fcea9498675a103311ef9eb486d5751ff5d1f7479f265cdb4874931eead52fa17e2a5838b925d831917cfc613fa84b5693cb",
-        "profil": "etablissement",
-        "Id_structure": 17,
-        "nom_affiche": "L'Isle-aux-Fleurs"
-    },
-    "le_parc_du_bequet": {
-        "hash": "scrypt:32768:8:1$sj3dPjpoacIctdlN$10dc6126ce8eeaacdc5c4a6edcb636495c62337bb34dc3636c8bc5c6131896bc41b617be3d8cb393f766b35e7878f1c753c8eba56ff389640914f78f7ad922a4",
-        "profil": "etablissement",
-        "Id_structure": 18,
-        "nom_affiche": "Le Parc du Béquet"
-    },
-    "notre_dame_des_anges": {
-        "hash": "scrypt:32768:8:1$JPN4NAWrpbsYaqsw$1b74c4386b869bf3d526ef58fdc54e06a8061a513dee83a05894a0d17b08da26ef76936b3248756710fc7a80a538b6c97ef063e2bd586b53b734afeeb14560fe",
-        "profil": "etablissement",
-        "Id_structure": 19,
-        "nom_affiche": "Notre-Dame Des Anges"
-    },
-    "pont_saint_jean": {
-        "hash": "scrypt:32768:8:1$SHXeg8Eq6IJK2BN9$4d3fdce5206abb8e73064a094d20430c373b78fb89ad7aa5a9dc47e8d72c58853b29068fb0778dd0498be40e533f62244f7da3d6cd079621e59af2a0c3300ca8",
-        "profil": "etablissement",
-        "Id_structure": 20,
-        "nom_affiche": "Pont-Saint-Jean"
-    },
-    "blanche_de_caastille": {
-        "hash": "scrypt:32768:8:1$fIMSw7p4Y7VfIRcm$abbe27050e34635750d0213a4efad0cd0bf5d00a38f4aeec607d6234c25cea77effb869acb84f32410fe1f3dec604f61942f99727a74a3cec9bc61507ac401e6",
-        "profil": "etablissement",
-        "Id_structure": 21,
-        "nom_affiche": "Blanche de Caastille"
-    },
-    "clos_de_rochegude": {
-        "hash": "scrypt:32768:8:1$3RfhklgOTQb60rcb$1c9936008bff973c60aade9221f119fc77d62794fbd8a6e59af421617043d257daaa752f1d99f97faeb55729df2c5cc4abe688a09ceda7105f74b09fa241d091",
-        "profil": "etablissement",
-        "Id_structure": 22,
-        "nom_affiche": "Clos de Rochegude"
-    },
-    "les_cedres_belves": {
-        "hash": "scrypt:32768:8:1$UQtLeHo8VwEZP8WI$a2e115bc39eb2eea37e47cedf4c5e57e0ba38dd5fc6a5f3dea1a1314ef1b17c77bb3f89bb984188788bb885ea4b95dabeb1be9513f096226f71800ea7c4d2786",
-        "profil": "etablissement",
-        "Id_structure": 23,
-        "nom_affiche": "Les Cèdres Belvès"
-    },
-    "maison_de_blandine_limonest": {
-        "hash": "scrypt:32768:8:1$U2h99KS8fyGzcsPM$d2db7fe1303ef61a1736abeff6ccfdddd65a94c31f02e97cf918cab39d7eb33fb9181074887ac4f0241a9960c4aaa7a531f39e41a0b2fc1e6f345b228a6788b6",
-        "profil": "etablissement",
-        "Id_structure": 24,
-        "nom_affiche": "Maison de Blandine Limonest"
-    },
-    "maison_de_blandine_blace": {
-        "hash": "scrypt:32768:8:1$NlQyhVXtQgojF78X$0785759fd6ebef55d4809ffdfddd417be6b7e34957195f3c86e51474121e109d387a78cab61d2908769ab7e012ccca49ecb5197c4397c6bbdc1ff6073a97f806",
-        "profil": "etablissement",
-        "Id_structure": 25,
-        "nom_affiche": "Maison de Blandine Blacé"
-    },
-    "maison_de_blandine_sassenage": {
-        "hash": "scrypt:32768:8:1$qJNYmtPL9YTpLL0q$550d246e32f493a335b1404e9234fe954b7f5f5d38d166878970cdefbda23c0cd3769a62d351210e1d63b1fdce13507da9ab9afc7e359adbb9b6441ab47feb08",
-        "profil": "etablissement",
-        "Id_structure": 26,
-        "nom_affiche": "Maison de Blandine Sassenage"
-    },
-    "maison_de_blandine_amberieux": {
-        "hash": "scrypt:32768:8:1$PP2hH61cS7rwaVFu$a48708b1f1658cc3d1142e67be467eade19f8e7db61325f11affed719b20d091c09e5c08d3dc76e8145c515254343675f4bbc018bd0577d3ceb9599a67818129",
-        "profil": "etablissement",
-        "Id_structure": 27,
-        "nom_affiche": "Maison de Blandine Ambérieux"
-    },
-    "flora_tristan": {
-        "hash": "scrypt:32768:8:1$vgcW0F9a4AprwGFX$93042c606b8fdeda51fa65a117516a17fe2932f41229184868c69f840c8a32821f022fc41e51d725aaada286b7b54f292b2d06c28c0b4edaf85e161cb227f841",
-        "profil": "etablissement",
-        "Id_structure": 28,
-        "nom_affiche": "Flora Tristan"
-    },
-    "maison_de_blandine_ampuis": {
-        "hash": "scrypt:32768:8:1$FTwAahShgLvgshQj$e4846ebe89c5a35eeac838184a2e266380de44fef978cd0d662831c1ca7fe04a20cd1e822d9c2426248dfe4d0d5fe4edc07554eea78587b3d3525263a202cab6",
-        "profil": "etablissement",
-        "Id_structure": 29,
-        "nom_affiche": "Maison de Blandine Ampuis"
-    },
-    "maison_de_blandine_rives": {
-        "hash": "scrypt:32768:8:1$ZZ484cjIS1bye1vB$c1824dcb3cd99d116462d8d2eb723721bfe5a19784db51291c8cab10b4ac277e6f6ad7f3a5460d6f5fd7f657b63983dbe724411dc315c50237ff3b46a85de64b",
-        "profil": "etablissement",
-        "Id_structure": 30,
-        "nom_affiche": "Maison de Blandine Rives"
-    },
-    "louis_jouannin": {
-        "hash": "scrypt:32768:8:1$DwqBqnajE0HZ4BZd$b517c93ead03fbae0b3769fc66f66bf8873ef83f98450745d84b7706a29a7425e8dc59a4514fd82b514072a27457ce3ea310b924aba864a7be87918842a38fa1",
-        "profil": "etablissement",
-        "Id_structure": 31,
-        "nom_affiche": "Louis Jouannin"
-    },
-}
+COMPTES_AUTORISES = charger_comptes()
 
 # SESSION STATE
 
@@ -602,7 +435,7 @@ def get_analyse_verbatims(id_structure, annee):
         return pd.DataFrame(), pd.DataFrame()
 
 
-# ALGORITHME LABEL VIVRE (TÂCHE 20)
+# ALGORITHME LABEL VIVRE
 
 QUESTIONS_ESSENTIELLES = [
     "Je me sens en sécurité", "Je me sens respecté(e) en tant que personne",
@@ -673,37 +506,7 @@ def get_verdict_label(scores_public, criteres):
 
 if st.session_state.profil == "admin":
     # Admin : 7 colonnes avec bouton Import
-    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6, col_nav7 = st.columns([2, 2, 2, 2, 2, 2, 1])
-    with col_nav1:
-        if st.button(" Tableau de bord", use_container_width=True):
-            st.session_state.page = 'dashboard'
-            st.rerun()
-    with col_nav2:
-        if st.button(" Label Vivre", use_container_width=True):
-            st.session_state.page = 'label'
-            st.rerun()
-    with col_nav3:
-        if st.button(" Données brutes", use_container_width=True):
-            st.session_state.page = 'donnees'
-            st.rerun()
-    with col_nav4:
-        if st.button("⬇ Export", use_container_width=True):
-            st.session_state.page = 'export'
-            st.rerun()
-    # ===== TÂCHE 26 : Bouton Import visible uniquement pour l'admin =====
-    with col_nav5:
-        if st.button(" Importer", use_container_width=True):
-            st.session_state.page = 'import'
-            st.rerun()
-    # ====================================================================
-    with col_nav6:
-        if st.button(" Déconnexion", use_container_width=True):
-            logout()
-    with col_nav7:
-        st.markdown("<p style='text-align:right; padding-top:6px;'><span class='badge-admin'>🔑 Admin</span></p>", unsafe_allow_html=True)
-else:
-    # Établissement : 6 colonnes sans bouton Import
-    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6 = st.columns([2, 2, 2, 2, 2, 1])
+    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6, col_nav7, col_nav8 = st.columns([2, 2, 2, 2, 2, 2, 2, 1])
     with col_nav1:
         if st.button(" Tableau de bord", use_container_width=True):
             st.session_state.page = 'dashboard'
@@ -721,15 +524,50 @@ else:
             st.session_state.page = 'export'
             st.rerun()
     with col_nav5:
+        if st.button(" Importer", use_container_width=True):
+            st.session_state.page = 'import'
+            st.rerun()
+    with col_nav6:
+        if st.button(" Comptes", use_container_width=True):
+            st.session_state.page = 'gestion_comptes'
+            st.rerun()
+    with col_nav7:
         if st.button(" Déconnexion", use_container_width=True):
             logout()
+    with col_nav8:
+        st.markdown("<p style='text-align:right; padding-top:6px;'><span class='badge-admin'>Admin</span></p>", unsafe_allow_html=True)
+else:
+    # Établissement : 6 colonnes sans bouton Import
+    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6, col_nav7 = st.columns([2, 2, 2, 2, 2, 2, 1])
+    with col_nav1:
+        if st.button(" Tableau de bord", use_container_width=True):
+            st.session_state.page = 'dashboard'
+            st.rerun()
+    with col_nav2:
+        if st.button(" Label Vivre", use_container_width=True):
+            st.session_state.page = 'label'
+            st.rerun()
+    with col_nav3:
+        if st.button(" Données brutes", use_container_width=True):
+            st.session_state.page = 'donnees'
+            st.rerun()
+    with col_nav4:
+        if st.button(" Export", use_container_width=True):
+            st.session_state.page = 'export'
+            st.rerun()
+    with col_nav5:
+        if st.button(" Mon compte", use_container_width=True):
+            st.session_state.page = 'mon_compte'
+            st.rerun()
     with col_nav6:
-        st.markdown("<p style='text-align:right; padding-top:6px;'><span class='badge-etab'> Établissement</span></p>", unsafe_allow_html=True)
-
+        if st.button(" Déconnexion", use_container_width=True):
+            logout()
+    with col_nav7:
+        st.markdown("<p style='text-align:center; padding-top:6px;'><span class='badge-etab' style='font-size:0.55rem; padding:2px 4px; white-space:nowrap; display:block;'>Établissement</span></p>", unsafe_allow_html=True)
 st.markdown("---")
 
 # ============================================================
-# BARRE DE FILTRES — TÂCHE 18
+# BARRE DE FILTRES 
 # ============================================================
 df_structures = get_structures()
 annees_dispo = get_annees()
@@ -755,14 +593,14 @@ with st.container():
             st.markdown("<br>", unsafe_allow_html=True)
             if st.session_state.filtre_structure:
                 row_info = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
-                if not row_info.empty: st.caption(f"📍 {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
+                if not row_info.empty: st.caption(f" {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
     else:
         id_s = st.session_state.filtre_structure
         if id_s:
             row_etab = df_structures[df_structures['Id_structure'] == id_s]
             if not row_etab.empty:
                 col_e1, col_e2 = st.columns([3, 2])
-                with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp; 📍 {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
+                with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp;  {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
                 with col_e2:
                     options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
                     choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee_etab")
@@ -1057,7 +895,7 @@ elif st.session_state.page == 'label':
         publics_ok = scores_public[scores_public['valide']]['public'].tolist() if not scores_public.empty else []
         st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Critère 2 — Expérience positive</div><div class='kpi-value'>{icone_c2}</div><div class='kpi-label'>{len(publics_ok)}/3 publics ≥ 7/10</div></div>""", unsafe_allow_html=True)
 # ============================================================
-# ===== TÂCHE 26 : PAGE IMPORT DES DONNÉES ==================
+# =====  PAGE IMPORT DES DONNÉES =========
 # ============================================================
 # Visible uniquement pour l'admin (Stéphane Dardelet)
 # Permet d'uploader les 9 fichiers xlsx LimeSurvey directement
@@ -1232,3 +1070,128 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
             <div style='margin-top:10px;'>Glissez vos fichiers xlsx  pour les sélectionner</div>
         </div>
         """, unsafe_allow_html=True)
+
+# ============================================================
+# PAGE MON COMPTE — Changer son propre mot de passe
+# Accessible à tous les utilisateurs connectés (établissements)
+# ============================================================
+elif st.session_state.page == 'mon_compte':
+    st.markdown("<div class='section-title'> Mon compte</div>", unsafe_allow_html=True)
+
+    compte_actuel = COMPTES_AUTORISES.get(st.session_state.identifiant, {})
+    st.markdown(f"**Connecté en tant que :** {compte_actuel.get('nom_affiche', st.session_state.identifiant)}")
+    st.markdown(f"**Identifiant :** `{st.session_state.identifiant}`")
+    st.markdown("---")
+    st.markdown("### Changer mon mot de passe")
+
+    with st.form("form_changer_mdp"):
+        ancien_mdp = st.text_input("Ancien mot de passe", type="password")
+        nouveau_mdp = st.text_input("Nouveau mot de passe", type="password")
+        confirm_mdp = st.text_input("Confirmer le nouveau mot de passe", type="password")
+        submit = st.form_submit_button("Enregistrer", use_container_width=True)
+
+        if submit:
+            if not ancien_mdp or not nouveau_mdp or not confirm_mdp:
+                st.error(" Veuillez remplir tous les champs.")
+            elif not check_password_hash(compte_actuel.get('hash', ''), ancien_mdp):
+                st.error(" Ancien mot de passe incorrect.")
+            elif nouveau_mdp != confirm_mdp:
+                st.error(" Les nouveaux mots de passe ne correspondent pas.")
+            elif len(nouveau_mdp) < 6:
+                st.error(" Le mot de passe doit contenir au moins 6 caractères.")
+            else:
+                try:
+                    from werkzeug.security import generate_password_hash
+                    nouveau_hash = generate_password_hash(nouveau_mdp)
+                    chemin_bdd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+                    conn = sqlite3.connect(chemin_bdd)
+                    conn.execute(
+                        "UPDATE UTILISATEUR SET Hash_mdp = ? WHERE Identifiant = ?",
+                        (nouveau_hash, st.session_state.identifiant)
+                    )
+                    conn.commit()
+                    conn.close()
+                    st.cache_data.clear()
+                    st.success(" Mot de passe modifié avec succès !")
+                    st.info("Votre nouveau mot de passe sera actif à la prochaine connexion.")
+                except Exception as e:
+                    st.error(f" Erreur : {e}")
+
+# ============================================================
+# PAGE GESTION DES COMPTES — Admin uniquement
+# ============================================================
+elif st.session_state.page == 'gestion_comptes' and st.session_state.profil == "admin":
+    st.markdown("<div class='section-title'>👥 Gestion des comptes</div>", unsafe_allow_html=True)
+
+    tab1, tab2 = st.tabs([" Mon mot de passe", " Réinitialiser un établissement"])
+
+    with tab1:
+        st.markdown("### Changer mon mot de passe")
+        compte_admin = COMPTES_AUTORISES.get(st.session_state.identifiant, {})
+        with st.form("form_admin_mdp"):
+            ancien_mdp_a = st.text_input("Ancien mot de passe", type="password")
+            nouveau_mdp_a = st.text_input("Nouveau mot de passe", type="password")
+            confirm_mdp_a = st.text_input("Confirmer le nouveau mot de passe", type="password")
+            submit_a = st.form_submit_button("Enregistrer", use_container_width=True)
+            if submit_a:
+                if not ancien_mdp_a or not nouveau_mdp_a or not confirm_mdp_a:
+                    st.error(" Veuillez remplir tous les champs.")
+                elif not check_password_hash(compte_admin.get('hash', ''), ancien_mdp_a):
+                    st.error(" Ancien mot de passe incorrect.")
+                elif nouveau_mdp_a != confirm_mdp_a:
+                    st.error(" Les mots de passe ne correspondent pas.")
+                elif len(nouveau_mdp_a) < 6:
+                    st.error(" Minimum 6 caractères.")
+                else:
+                    try:
+                        from werkzeug.security import generate_password_hash
+                        nouveau_hash = generate_password_hash(nouveau_mdp_a)
+                        chemin_bdd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+                        conn = sqlite3.connect(chemin_bdd)
+                        conn.execute("UPDATE UTILISATEUR SET Hash_mdp = ? WHERE Identifiant = ?",
+                                   (nouveau_hash, st.session_state.identifiant))
+                        conn.commit()
+                        conn.close()
+                        st.cache_data.clear()
+                        st.success(" Mot de passe modifié avec succès !")
+                    except Exception as e:
+                        st.error(f" Erreur : {e}")
+
+    with tab2:
+        st.markdown("### Réinitialiser le mot de passe d'un établissement")
+        st.info("Si un établissement a oublié son mot de passe, choisissez-le ci-dessous et définissez un nouveau mot de passe temporaire.")
+        chemin_bdd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+        conn = sqlite3.connect(chemin_bdd)
+        df_etabs = pd.read_sql_query(
+            "SELECT Identifiant, Nom FROM UTILISATEUR WHERE Role = 'etablissement' ORDER BY Nom", conn
+        )
+        conn.close()
+        with st.form("form_reset_mdp"):
+            options = [f"{row['Nom']} ({row['Identifiant']})" for _, row in df_etabs.iterrows()]
+            choix = st.selectbox("Établissement", options=options)
+            nouveau_mdp_r = st.text_input("Nouveau mot de passe temporaire", type="password")
+            confirm_mdp_r = st.text_input("Confirmer le mot de passe", type="password")
+            submit_r = st.form_submit_button("Réinitialiser", use_container_width=True)
+            if submit_r:
+                if not nouveau_mdp_r or not confirm_mdp_r:
+                    st.error(" Veuillez remplir tous les champs.")
+                elif nouveau_mdp_r != confirm_mdp_r:
+                    st.error(" Les mots de passe ne correspondent pas.")
+                elif len(nouveau_mdp_r) < 6:
+                    st.error(" Minimum 6 caractères.")
+                else:
+                    try:
+                        from werkzeug.security import generate_password_hash
+                        identifiant_choisi = choix.split("(")[1].rstrip(")")
+                        nouveau_hash = generate_password_hash(nouveau_mdp_r)
+                        conn = sqlite3.connect(chemin_bdd)
+                        conn.execute("UPDATE UTILISATEUR SET Hash_mdp = ? WHERE Identifiant = ?",
+                                   (nouveau_hash, identifiant_choisi))
+                        conn.commit()
+                        conn.close()
+                        st.cache_data.clear()
+                        nom_etab = choix.split(" (")[0]
+                        st.success(f" Mot de passe de **{nom_etab}** réinitialisé !")
+                        st.warning(f" Communiquez ce mot de passe temporaire : `{nouveau_mdp_r}`")
+                    except Exception as e:
+                        st.error(f" Erreur : {e}")
