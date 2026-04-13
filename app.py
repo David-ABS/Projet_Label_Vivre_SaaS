@@ -4,8 +4,6 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import os
-dossier_serveur = os.path.dirname(os.path.abspath(__file__))
-st.error(f"📂 Fichiers vus par le serveur : {os.listdir(dossier_serveur)}")
 from werkzeug.security import check_password_hash
 from textblob import TextBlob
 
