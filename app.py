@@ -29,7 +29,7 @@ st.markdown("""
     margin: -1rem -1rem 2rem -1rem;
     display: flex;
     align-items: center;
-    justify-content: flex-start;   /* 👈 IMPORTANT */
+    justify-content: flex-start;   /*  IMPORTANT */
      }
     .header-title {
         font-family: 'Georgia', serif; font-size: 2.5rem;
@@ -669,31 +669,62 @@ def get_verdict_label(scores_public, criteres):
 
 
 # NAVIGATION
+# Le bouton "Importer" est visible uniquement pour l'admin (Stéphane Dardelet)
 
-col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6 = st.columns([2, 2, 2, 2, 2, 1])
-with col_nav1:
-    if st.button(" Tableau de bord", use_container_width=True):
-        st.session_state.page = 'dashboard'
-        st.rerun()
-with col_nav2:
-    if st.button(" Label Vivre", use_container_width=True):
-        st.session_state.page = 'label'
-        st.rerun()
-with col_nav3:
-    if st.button(" Données brutes", use_container_width=True):
-        st.session_state.page = 'donnees'
-        st.rerun()
-with col_nav4:
-    if st.button(" Export", use_container_width=True):
-        st.session_state.page = 'export'
-        st.rerun()
-with col_nav5:
-    if st.button(" Déconnexion", use_container_width=True):
-        logout()
-with col_nav6:
-    badge = "badge-admin" if st.session_state.profil == "admin" else "badge-etab"
-    label = " Admin" if st.session_state.profil == "admin" else " Établissement"
-    st.markdown(f"<p style='text-align:right; padding-top:6px;'><span class='{badge}'>{label}</span></p>", unsafe_allow_html=True)
+if st.session_state.profil == "admin":
+    # Admin : 7 colonnes avec bouton Import
+    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6, col_nav7 = st.columns([2, 2, 2, 2, 2, 2, 1])
+    with col_nav1:
+        if st.button(" Tableau de bord", use_container_width=True):
+            st.session_state.page = 'dashboard'
+            st.rerun()
+    with col_nav2:
+        if st.button(" Label Vivre", use_container_width=True):
+            st.session_state.page = 'label'
+            st.rerun()
+    with col_nav3:
+        if st.button(" Données brutes", use_container_width=True):
+            st.session_state.page = 'donnees'
+            st.rerun()
+    with col_nav4:
+        if st.button("⬇ Export", use_container_width=True):
+            st.session_state.page = 'export'
+            st.rerun()
+    # ===== TÂCHE 26 : Bouton Import visible uniquement pour l'admin =====
+    with col_nav5:
+        if st.button(" Importer", use_container_width=True):
+            st.session_state.page = 'import'
+            st.rerun()
+    # ====================================================================
+    with col_nav6:
+        if st.button(" Déconnexion", use_container_width=True):
+            logout()
+    with col_nav7:
+        st.markdown("<p style='text-align:right; padding-top:6px;'><span class='badge-admin'>🔑 Admin</span></p>", unsafe_allow_html=True)
+else:
+    # Établissement : 6 colonnes sans bouton Import
+    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6 = st.columns([2, 2, 2, 2, 2, 1])
+    with col_nav1:
+        if st.button(" Tableau de bord", use_container_width=True):
+            st.session_state.page = 'dashboard'
+            st.rerun()
+    with col_nav2:
+        if st.button(" Label Vivre", use_container_width=True):
+            st.session_state.page = 'label'
+            st.rerun()
+    with col_nav3:
+        if st.button(" Données brutes", use_container_width=True):
+            st.session_state.page = 'donnees'
+            st.rerun()
+    with col_nav4:
+        if st.button(" Export", use_container_width=True):
+            st.session_state.page = 'export'
+            st.rerun()
+    with col_nav5:
+        if st.button(" Déconnexion", use_container_width=True):
+            logout()
+    with col_nav6:
+        st.markdown("<p style='text-align:right; padding-top:6px;'><span class='badge-etab'> Établissement</span></p>", unsafe_allow_html=True)
 
 st.markdown("---")
 
@@ -826,7 +857,7 @@ if st.session_state.page == 'dashboard':
 
     # ONGLET 3 : VERBATIM (TÂCHE 16 : ANALYSE IA)
     with tab_verbatim:
-        st.markdown("<div class='section-title'>💬 Ce qu'ils nous ont dit (Analyse IA)</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'> Ce qu'ils nous ont dit (Analyse IA)</div>", unsafe_allow_html=True)
         
         top_positifs, top_suggestions = get_analyse_verbatims(id_structure_actif, annee_active)
         
@@ -869,9 +900,9 @@ if st.session_state.page == 'dashboard':
         if 'demo_prompt' not in st.session_state:
             st.session_state.demo_prompt = None
 
-        if col_q1.button("📈 Quel % des résidents > 75 ans en EHPAD ?"):
+        if col_q1.button(" Quel % des résidents > 75 ans en EHPAD ?"):
             st.session_state.demo_prompt = "Quel pourcentage des personnes de plus de 75 ans en EHPAD ?"
-        if col_q2.button("🧠 Quelles évolutions dans les verbatims salariés ?"):
+        if col_q2.button(" Quelles évolutions dans les verbatims salariés ?"):
             st.session_state.demo_prompt = "Quelles sont les principales évolutions observées dans les verbatims partagés par les salariés sur leurs conditions de travail ?"
 
         # 2. La barre de chat (Interface ChatGPT native de Streamlit)
@@ -905,7 +936,7 @@ if st.session_state.page == 'dashboard':
                     st.warning("J'ai synthétisé les retours de l'équipe. L'évolution principale porte sur le **manque de nuance entre les services**. \n\nLes mots-clés **'inclusion'** et **'management de proximité'** ressortent très souvent. Plusieurs salariés ont d'ailleurs souligné que le créneau de 30 minutes était insuffisant pour creuser véritablement ces sujets de fond.")
                 
                 else:
-                    st.write("Je suis un démonstrateur 🤖. Pour cette présentation, demandez-moi plutôt les statistiques socio-démographiques ou l'analyse des commentaires salariés !")
+                    st.write("Je suis un démonstrateur . Pour cette présentation, demandez-moi plutôt les statistiques socio-démographiques ou l'analyse des commentaires salariés !")
 
 # ============================================================
 # PAGE DONNÉES BRUTES
@@ -929,7 +960,7 @@ elif st.session_state.page == 'export':
     st.markdown("<div class='section-title'> Export des données</div>", unsafe_allow_html=True)
 
     # --- L'astuce pour le PDF ---
-    #st.info("💡 **Astuce PDF (Rapport) :** Pour générer un rapport PDF parfait, allez dans l'onglet **'Tableau de bord'** et appuyez sur **`Ctrl + P`** (ou `Cmd + P` sur Mac), puis choisissez la destination **'Enregistrer au format PDF'**. Le design a été spécialement codé pour ça !")
+    #st.info(" **Astuce PDF (Rapport) :** Pour générer un rapport PDF parfait, allez dans l'onglet **'Tableau de bord'** et appuyez sur **`Ctrl + P`** (ou `Cmd + P` sur Mac), puis choisissez la destination **'Enregistrer au format PDF'**. Le design a été spécialement codé pour ça !")
    # st.markdown("---")
 
     if id_structure_actif:
@@ -992,7 +1023,7 @@ elif st.session_state.page == 'label':
         for i, (_, row) in enumerate(scores_public.iterrows()):
             with cols[i]:
                 couleur = "#6BBFB5" if row['valide'] else "#E8706A"
-                icone = "✅" if row['valide'] else "❌"
+                icone = "" if row['valide'] else ""
                 st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>{icone} {row['public']}</div><div class='kpi-value' style='color:{couleur};'>{row['score_10']}</div><div class='kpi-label'>/ 10 &nbsp;·&nbsp; {row['nb_repondants']} répondants</div><div style='margin-top:8px; font-size:0.8rem; color:#888;'>(score brut : {row['score_moyen_4']}/4)</div></div>""", unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
         for _, row in scores_public.iterrows():
@@ -1016,12 +1047,188 @@ elif st.session_state.page == 'label':
         st.warning("Aucun critère essentiel trouvé pour cet établissement.")
 
     st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>📝 Récapitulatif</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'> Récapitulatif</div>", unsafe_allow_html=True)
     col_r1, col_r2 = st.columns(2)
     with col_r1:
-        icone_c1 = "✅" if verdict['c1_ok'] else "❌"
+        icone_c1 = "" if verdict['c1_ok'] else ""
         st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Critère 1 — Critères essentiels</div><div class='kpi-value'>{icone_c1}</div><div class='kpi-label'>{verdict['nb_bloquants']} bloquant(s) · {verdict['nb_avertissements']} avertissement(s)</div></div>""", unsafe_allow_html=True)
     with col_r2:
-        icone_c2 = "✅" if verdict['c2_ok'] else "❌"
+        icone_c2 = "" if verdict['c2_ok'] else ""
         publics_ok = scores_public[scores_public['valide']]['public'].tolist() if not scores_public.empty else []
         st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Critère 2 — Expérience positive</div><div class='kpi-value'>{icone_c2}</div><div class='kpi-label'>{len(publics_ok)}/3 publics ≥ 7/10</div></div>""", unsafe_allow_html=True)
+# ============================================================
+# ===== TÂCHE 26 : PAGE IMPORT DES DONNÉES ==================
+# ============================================================
+# Visible uniquement pour l'admin (Stéphane Dardelet)
+# Permet d'uploader les 9 fichiers xlsx LimeSurvey directement
+# depuis l'interface sans passer par le terminal
+# ============================================================
+elif st.session_state.page == 'import' and st.session_state.profil == "admin":
+
+    st.markdown("<div class='section-title'> Importer de nouvelles données</div>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style='background:#E8F8F0; border:1px solid #6BBFB5; border-radius:10px;
+                padding:16px; margin-bottom:20px; font-size:0.9rem; color:#0F6E56;'>
+        <strong> Instructions :</strong><br>
+        Uploadez les fichiers xlsx exportés depuis LimeSurvey.<br>
+        Vous pouvez uploader plusieurs fichiers en même temps.
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Zone d'upload — accepte plusieurs fichiers xlsx
+    fichiers_uploades = st.file_uploader(
+        "Sélectionnez les fichiers LimeSurvey (.xlsx)",
+        type=["xlsx"],
+        accept_multiple_files=True,
+        help="Vous pouvez sélectionner plusieurs fichiers en même temps (Ctrl+clic)"
+    )
+
+    # Afficher les fichiers uploadés
+    if fichiers_uploades:
+        st.markdown(f"**{len(fichiers_uploades)} fichier(s) sélectionné(s) :**")
+        for f in fichiers_uploades:
+            st.markdown(f"-  `{f.name}`")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Bouton de lancement
+        if st.button(" Lancer l'import", use_container_width=True):
+
+            colonnes_fixes = [
+                'ID de la réponse', 'Date de soumission', 'Dernière page',
+                'Langue de départ', 'Tête de série', 'Date de lancement',
+                'Date de la dernière action'
+            ]
+            dictionnaire_scores = {
+                "Tout à fait d'accord": 4,
+                "Plutôt d'accord": 3,
+                "Plutôt pas d'accord": 2,
+                "Pas du tout d'accord": 1,
+                "Oui": 1,
+                "Non": 0
+            }
+
+            tous_les_tableaux = []
+            erreurs = []
+
+            # Barre de progression
+            progress = st.progress(0)
+            status = st.empty()
+
+            for i, fichier in enumerate(fichiers_uploades):
+                status.text(f" Traitement de {fichier.name}...")
+                try:
+                    # Lecture du fichier xlsx uploadé
+                    df = pd.read_excel(fichier, engine='openpyxl')
+
+                    # Vérifier que les colonnes fixes sont présentes
+                    cols_presentes = [c for c in colonnes_fixes if c in df.columns]
+                    if len(cols_presentes) < 3:
+                        erreurs.append(f" `{fichier.name}` — Format non reconnu (colonnes LimeSurvey manquantes)")
+                        continue
+
+                    # Dépivotage
+                    df_long = pd.melt(
+                        df,
+                        id_vars=cols_presentes,
+                        var_name='Question_Formulation',
+                        value_name='Valeur_Brute'
+                    )
+
+                    # Nettoyage
+                    df_long = df_long.dropna(subset=['Valeur_Brute'])
+
+                    # Mapping scores
+                    df_long['Score'] = df_long['Valeur_Brute'].map(
+                        dictionnaire_scores
+                    ).fillna(df_long['Valeur_Brute'])
+
+                    # Ajout Annee
+                    df_long['Annee'] = pd.to_datetime(
+                        df_long['Date de soumission'], errors='coerce'
+                    ).dt.year.astype('Int64')
+
+                    # Id_structure simulé (à mettre à jour quand client répond)
+                    import random
+                    random.seed(42)
+                    ids = df_long['ID de la réponse'].unique()
+                    mapping = {id_rep: random.choice(list(range(1, 20))) for id_rep in ids}
+                    df_long['Id_structure'] = df_long['ID de la réponse'].map(mapping)
+
+                    tous_les_tableaux.append(df_long)
+                    progress.progress((i + 1) / len(fichiers_uploades))
+
+                except Exception as e:
+                    erreurs.append(f" `{fichier.name}` — Erreur : {e}")
+
+            # Afficher les erreurs s'il y en a
+            if erreurs:
+                for err in erreurs:
+                    st.error(err)
+
+            # Injection en base si au moins un fichier a été traité
+            if tous_les_tableaux:
+                status.text(" Fusion et injection dans la base de données...")
+
+                df_final = pd.concat(tous_les_tableaux, ignore_index=True)
+
+                try:
+                    chemin_bdd = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        "label_vivre.sqlite"
+                    )
+                    conn = sqlite3.connect(chemin_bdd)
+
+                    # Récupérer les données existantes et ajouter les nouvelles
+                    try:
+                        df_existant = pd.read_sql_query(
+                            "SELECT * FROM DONNEES_LIMESURVEY_NETTOYEES", conn
+                        )
+                        df_final = pd.concat(
+                            [df_existant, df_final], ignore_index=True
+                        ).drop_duplicates(
+                            subset=['ID de la réponse', 'Question_Formulation', 'Date de soumission'],
+                            keep='last'
+                        )
+                    except:
+                        pass  # Si la table n'existe pas encore
+
+                    df_final.to_sql(
+                        'DONNEES_LIMESURVEY_NETTOYEES',
+                        conn,
+                        if_exists='replace',
+                        index=False
+                    )
+                    conn.close()
+
+                    progress.progress(1.0)
+                    status.empty()
+
+                    # Vider le cache pour que les graphiques se mettent à jour
+                    st.cache_data.clear()
+
+                    # Message de succès
+                    st.success(f"""
+                     **Import réussi !**
+                    - {len(fichiers_uploades) - len(erreurs)} fichier(s) importé(s)
+                    - {len(df_final):,} lignes au total dans la base
+                    - Années disponibles : {sorted(df_final['Annee'].dropna().unique().tolist())}
+                    """)
+
+                    st.info(" Allez sur le **Tableau de bord** pour voir les résultats mis à jour.")
+
+                except Exception as e:
+                    st.error(f" Erreur lors de l'injection en base : {e}")
+            else:
+                status.empty()
+                st.error(" Aucun fichier n'a pu être traité. Vérifiez le format des fichiers.")
+
+    else:
+        # Message si aucun fichier uploadé
+        st.markdown("""
+        <div style='text-align:center; padding:40px; color:#888;'>
+            <div style='font-size:3rem;'></div>
+            <div style='margin-top:10px;'>Glissez vos fichiers xlsx  pour les sélectionner</div>
+        </div>
+        """, unsafe_allow_html=True)
