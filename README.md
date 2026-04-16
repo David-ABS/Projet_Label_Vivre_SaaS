@@ -5,7 +5,7 @@
 ---
 
 ## 🚀 Accès Rapide
-* **Version Cloud :** [Insère ton lien Streamlit ici (ex: https://label-vivre.streamlit.app)]
+* **Version Cloud :** https://projetlabelvivresaas-klmvqvqzdhnjfcwh9clnv4.streamlit.app/
 * **Identifiants de test :** * *Admin :* `stephane_dardelet`
     * *Établissement :* `manon_cormier` ou `saint_dominique`
 
