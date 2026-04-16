@@ -629,6 +629,13 @@ if st.session_state.page == 'dashboard':
     else:
         st.markdown("<div class='section-title'> Rapport — Tous les établissements</div>", unsafe_allow_html=True)
 
+    # VÉRIFICATION : données disponibles pour cette sélection ?
+    if pd.isna(nps['NPS']) or int(nps['total']) == 0:
+        nom_etab = nom_actif if id_structure_actif else "cet établissement"
+        annee_msg = f"en {annee_active}" if annee_active else ""
+        st.warning(f"⚠️ Aucune donnée disponible pour **{nom_etab}** {annee_msg}. Veuillez sélectionner une autre année ou importer les données correspondantes.")
+        st.stop()
+
     # CRÉATION DES ONGLETS
     tab_synthese, tab_thematique, tab_verbatim, tab_methodo, tab_ia = st.tabs([
         " Résultats synthétiques", 
@@ -987,35 +994,12 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
                         df_long['Date de soumission'], errors='coerce'
                     ).dt.year.astype('Int64')
 
-                    # Mapping réel depuis QUESTIONNAIRE_MAPPING
-                    # Extraire l'ID depuis le nom du fichier (ex: results-survey312572.xlsx → 312572)
-                    import re as re_module
-                    match = re_module.search(r'(\d+)', fichier.name)
-                    id_questionnaire = match.group(1) if match else None
-                    
-                    if id_questionnaire:
-                        chemin_bdd_map = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
-                        conn_map = sqlite3.connect(chemin_bdd_map)
-                        df_map = pd.read_sql_query(
-                            f"SELECT Id_questionnaire, Etablissement, Annee FROM QUESTIONNAIRE_MAPPING WHERE Id_questionnaire = '{id_questionnaire}'",
-                            conn_map
-                        )
-                        df_struct = pd.read_sql_query('SELECT Id_structure, Structure FROM STRUCTURE', conn_map)
-                        conn_map.close()
-                        
-                        if not df_map.empty:
-                            etablissement = df_map.iloc[0]['Etablissement']
-                            annee_map = int(df_map.iloc[0]['Annee'])
-                            row_s = df_struct[df_struct['Structure'].str.strip() == etablissement.strip()]
-                            id_structure_reel = int(row_s.iloc[0]['Id_structure']) if not row_s.empty else None
-                            df_long['Id_structure'] = id_structure_reel
-                            df_long['Annee'] = annee_map
-                        else:
-                            # ID non trouvé dans le mapping — assigner None
-                            df_long['Id_structure'] = None
-                            st.warning(f"⚠️ ID {id_questionnaire} non trouvé dans le tableau de correspondance.")
-                    else:
-                        df_long['Id_structure'] = None
+                    # Id_structure simulé (à mettre à jour quand client répond)
+                    import random
+                    random.seed(42)
+                    ids = df_long['ID de la réponse'].unique()
+                    mapping = {id_rep: random.choice(list(range(1, 20))) for id_rep in ids}
+                    df_long['Id_structure'] = df_long['ID de la réponse'].map(mapping)
 
                     tous_les_tableaux.append(df_long)
                     progress.progress((i + 1) / len(fichiers_uploades))
