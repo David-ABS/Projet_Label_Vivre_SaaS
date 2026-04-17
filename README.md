@@ -1,39 +1,72 @@
-# ❤️ Label Vivre — Plateforme SaaS d'Analyse d'Expérience
+❤️ Label Vivre — Plateforme SaaS d'Analyse d'Expérience
+Engagés pour nos aînés.
+Une solution Business Intelligence (SaaS) innovante pour piloter la qualité perçue en EHPAD, Résidences Autonomie et Habitats Partagés.
 
-> **Engagés pour nos aînés.** > Une solution innovante pour piloter la qualité perçue en EHPAD, Résidences Autonomie et Habitats Partagés.
+🚀 Accès Rapide
+🌐 Version Cloud : https://projetlabelvivresaas-klmvqvqzdhnjfcwh9clnv4.streamlit.app/
 
----
+🔑 Comptes de Test :
 
-## 🚀 Accès Rapide
-* **Version Cloud :** https://projetlabelvivresaas-klmvqvqzdhnjfcwh9clnv4.streamlit.app/
-* **Identifiants de test :** * *Admin :* `stephane_dardelet`
-    * *Établissement :* `manon_cormier` ou `saint_dominique`
+Profil Admin : stephane_dardelet (Mots de passe : Sd2023!)
 
----
+Profil Établissement : manon_cormier (Mots de passe : Vivre02!)
 
-## 📋 Présentation du Projet
-Label Vivre est un outil décisionnel (Business Intelligence) permettant de transformer les réponses brutes des enquêtes LimeSurvey en indicateurs de performance (KPI) et en rapports interactifs. 
+📋 Architecture du Projet
+L'outil transforme les exports complexes de LimeSurvey en une interface décisionnelle simplifiée. Le pipeline de données suit un cycle ETL complet (Extract, Transform, Load).
 
-### Fonctions Clés :
-1.  **📊 Dashboard Interactif :** Analyse du NPS, scores par public (Résidents, Proches, Équipe) et méthodologie.
-2.  **🏅 Algorithme Label Vivre :** Calcul automatique de l'éligibilité au label selon les 2 critères réglementaires.
-3.  **💬 Analyse IA (NLP) :** Synthèse automatique des verbatims pour extraire les points forts et les suggestions d'amélioration.
-4.  **🤖 Assistant Conversationnel :** Posez vos questions à la base de données en langage naturel (Démonstrateur).
-5.  **⬇️ Export Multi-format :** Téléchargement CSV et génération de rapports PDF (via `Ctrl+P`).
+🛠️ Stack Technique
+Frontend : Streamlit (Python)
 
----
+Design : CSS personnalisé + Mode Clair forcé (.streamlit/config.toml)
 
-## 💻 Installation et Lancement Local
+Base de données : SQLite (MCD Relationnel à 16 tables)
 
-### 1. Pré-requis
-* Python 3.9 ou supérieur.
-* Git installé.
+Traitement Data : Pandas & NumPy
 
-### 2. Installation
-```bash
-# Cloner le projet
-git clone [https://github.com/ton-profil/projet_label_vivre_saas.git](https://github.com/ton-profil/projet_label_vivre_saas.git)
-cd projet_label_vivre_saas
+IA & NLP : TextBlob (Analyse sémantique)
 
-# Installer les dépendances
+Graphiques : Plotly Express (Interactifs)
+
+🗺️ Diagramme de Flux (Architecture)
+Voici comment la donnée circule depuis l'import Excel jusqu'à l'interface utilisateur :
+
+✨ Fonctionnalités Majeures
+📊 Dashboard Dynamique : Visualisation du NPS global et des scores par thématique (Vie sociale, Restauration, Soins, etc.).
+
+🏅 Moteur de Labellisation : Algorithme vérifiant en temps réel l'éligibilité au label selon les seuils réglementaires du Critère 1 et 2.
+
+💬 Analyse IA des Verbatims : Extraction automatique des points forts et des pistes d'amélioration via le traitement du langage naturel.
+
+🤖 Assistant "Chat with Data" : Un démonstrateur d'IA conversationnelle permettant d'interroger la base de données en langage naturel (Démonstration de la vision SaaS 2026).
+
+📋 Méthodologie : Suivi précis des taux de réponse par public (Résidents, Proches, Équipe).
+
+📁 Structure des fichiers
+app.py : Application principale et gestion des droits d'accès.
+
+etl_limesurvey.py : Nettoyage et pivotage des données (Attribution automatique des Id_questionnaire).
+
+import_structure.py : Importation du référentiel des 31 établissements.
+
+patch_donnees.py : Enrichissement de la base (Dates, Géolocalisation, IDs).
+
+label_vivre.sqlite : Base de données relationnelle complète.
+
+.streamlit/config.toml : Configuration du thème visuel.
+
+💻 Installation Locale (Développeurs)
+Bash
+# 1. Récupération du dépôt
+git clone https://github.com/votre-repo/projet_label_vivre_saas.git
+
+# 2. Installation des dépendances
 pip install -r requirements.txt
+
+# 3. Lancement de l'interface
+python -m streamlit run app.py
+👥 Équipe Projet
+Lead Tech & Data : David
+
+Data Analysis : Fatima
+
+UX/UI Design : Nancy
