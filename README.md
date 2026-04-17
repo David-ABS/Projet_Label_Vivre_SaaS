@@ -64,6 +64,7 @@ pip install -r requirements.txt
 
 # 3. Lancement de l'interface
 python -m streamlit run app.py
+
 👥 Équipe Projet
 Lead Tech & Data : David
 
