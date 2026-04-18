@@ -647,13 +647,66 @@ if st.session_state.page == 'dashboard':
 
     # ONGLET 1 : SYNTHÈSE
     with tab_synthese:
+        
+        # --- 1. FILTRE PAR PUBLIC ---
+        st.markdown("###  Filtrer par Public")
+        choix_public = st.radio(
+            "Sélectionnez le public à analyser :",
+            options=["Tous les publics", "Résidents", "Proches", "Équipe"],
+            horizontal=True
+        )
+
+        conn = get_connexion()
+        where_clause, params = build_filtre(id_structure_actif, annee_active)
+        query = f"""
+            SELECT "Question_Formulation", CAST("Score" AS FLOAT) as Score 
+            FROM DONNEES_LIMESURVEY_NETTOYEES 
+            WHERE {where_clause} 
+            AND "Question_Formulation" NOT LIKE 'Durée%' 
+            AND "Question_Formulation" NOT LIKE 'Commentaire%'
+        """
+        df_donnees = pd.read_sql_query(query, conn, params=params)
+        
+        # On part de la variable contenant toutes les données 
+        if choix_public == "Résidents":
+            df_filtre = df_donnees[df_donnees['Question_Formulation'].str.contains('résident|habitant', case=False, na=False)]
+        elif choix_public == "Proches":
+            df_filtre = df_donnees[df_donnees['Question_Formulation'].str.contains('proche', case=False, na=False)]
+        elif choix_public == "Équipe":
+            df_filtre = df_donnees[df_donnees['Question_Formulation'].str.contains('équipe|salarié', case=False, na=False)]
+        else:
+            df_filtre = df_donnees.copy()
+
+        # --- 2. RECALCUL DYNAMIQUE DU NPS ---
+        # On isole les scores valides (1 à 4)
+        df_valide = df_filtre[df_filtre['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
+        total_rep = len(df_valide)
+
+        if total_rep > 0:
+            nb_prom = len(df_valide[df_valide['Score'] == 4.0])
+            nb_pass = len(df_valide[df_valide['Score'] == 3.0])
+            nb_detr = len(df_valide[df_valide['Score'].isin([1.0, 2.0])])
+
+            nps = {
+                'NPS': round(((nb_prom / total_rep) * 100) - ((nb_detr / total_rep) * 100), 1),
+                'pct_promoteurs': round((nb_prom / total_rep) * 100, 1),
+                'pct_passifs': round((nb_pass / total_rep) * 100, 1),
+                'pct_detracteurs': round((nb_detr / total_rep) * 100, 1),
+                'total': total_rep
+            }
+        else:
+            nps = {'NPS': 0, 'pct_promoteurs': 0, 'pct_passifs': 0, 'pct_detracteurs': 0, 'total': 0}
+
+        st.markdown("<hr>", unsafe_allow_html=True)
+
+        # --- 3. AFFICHAGE DES KPI (Ton code) ---
         col1, col2, col3, col4, col5 = st.columns(5)
         valeur_nps = nps['NPS'] if pd.notna(nps['NPS']) else 0
-        couleur_nps = "#6BBFB5" if nps['NPS'] >= 30 else "#E8706A"
+        couleur_nps = "#6BBFB5" if valeur_nps >= 30 else "#E8706A"
         affichage_nps = nps['NPS'] if pd.notna(nps['NPS']) else "N/A"
 
         with col1:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{nps['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{affichage_nps}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
         with col2:
             st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
         with col3:
@@ -666,20 +719,44 @@ if st.session_state.page == 'dashboard':
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns(2)
 
+        # --- 4. GRAPHIQUE BARRES (Recalcul dynamique) ---
         with col_left:
             st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
+            
+            # Fonction pour catégoriser la question
+            def attribuer_public(q):
+                q = str(q).lower()
+                if 'résident' in q or 'habitant' in q: return 'Résidents'
+                if 'proche' in q: return 'Proches'
+                if 'équipe' in q or 'salarié' in q: return 'Équipe'
+                return 'Autre'
+                
+            df_valide['public'] = df_valide['Question_Formulation'].apply(attribuer_public)
+            scores_public = df_valide.groupby('public')['Score'].mean().reset_index()
+            scores_public.rename(columns={'Score': 'score_moyen'}, inplace=True)
+            scores_public['score_moyen'] = scores_public['score_moyen'].round(2)
+
             df_pub = scores_public[scores_public['public'] != 'Autre'].copy()
             couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
-            fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
-            fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
-            fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
-            st.plotly_chart(fig_bar, use_container_width=True)
+            
+            # On vérifie s'il y a des données à afficher
+            if not df_pub.empty:
+                fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
+                fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
+                fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
+                st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                st.info("Aucun score moyen disponible pour ce filtre.")
 
+        # --- 5. GRAPHIQUE PIE  ---
         with col_right:
             st.markdown("<div class='section-title'> Répartition NPS</div>", unsafe_allow_html=True)
-            fig_pie = go.Figure(data=[go.Pie(labels=['Promoteurs', 'Passifs', 'Détracteurs'], values=[nps['pct_promoteurs'], nps['pct_passifs'], nps['pct_detracteurs']], hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A'])])
-            fig_pie.update_layout(title='Répartition des répondants', title_font_family='Georgia', paper_bgcolor='white', height=350, annotations=[dict(text=f'NPS<br>{nps["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)])
-            st.plotly_chart(fig_pie, use_container_width=True)
+            if total_rep > 0:
+                fig_pie = go.Figure(data=[go.Pie(labels=['Promoteurs', 'Passifs', 'Détracteurs'], values=[nps['pct_promoteurs'], nps['pct_passifs'], nps['pct_detracteurs']], hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A'])])
+                fig_pie.update_layout(title='Répartition des répondants', title_font_family='Georgia', paper_bgcolor='white', height=350, annotations=[dict(text=f'NPS<br>{nps["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)])
+                st.plotly_chart(fig_pie, use_container_width=True)
+            else:
+                st.info("Aucune donnée NPS disponible pour ce filtre.")
 
     # ONGLET 2 : THÉMATIQUES
     with tab_thematique:
