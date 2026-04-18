@@ -435,6 +435,139 @@ def get_analyse_verbatims(id_structure, annee):
         return pd.DataFrame(), pd.DataFrame()
 
 
+
+
+def get_nps_par_public(id_structure, annee):
+    conn = get_connexion()
+    where, params = build_filtre(id_structure, annee)
+    publics = {
+        'Résidents': ["LIKE '%résident%'", "LIKE '%habitant%'"],
+        'Proches': ["LIKE '%proche%'"],
+        'Équipe': ["LIKE '%équipe%'", "LIKE '%salarié%'"]
+    }
+    resultats = []
+    for public, conditions in publics.items():
+        filtre_public = " OR ".join([f'"Question_Formulation" {c}' for c in conditions])
+        query = f"""
+            SELECT '{public}' AS public,
+                COUNT(*) AS total,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_promoteurs,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_detracteurs,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*) -
+                      100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*), 1) AS NPS
+            FROM DONNEES_LIMESURVEY_NETTOYEES
+            WHERE {where} AND ({filtre_public})
+            AND "Question_Formulation" NOT LIKE 'Durée%'
+        """
+        df = pd.read_sql_query(query, conn, params=params)
+        if not df.empty and df.iloc[0]['total'] > 0:
+            resultats.append(df.iloc[0])
+    return resultats
+
+def get_satisfaction_globale_par_public(id_structure, annee):
+    conn = get_connexion()
+    where, params = build_filtre(id_structure, annee)
+    publics = {
+        'Résidents': "LIKE '%résident%'",
+        'Proches': "LIKE '%proche%'",
+        'Équipe': "LIKE '%équipe%'",
+    }
+    resultats = []
+    for public, filtre_public in publics.items():
+        query = f"""
+            SELECT '{public}' AS public,
+                COUNT(*) AS total,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_accord,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_tout_fait,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 3 THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_plutot,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_desaccord,
+                COUNT(DISTINCT "ID de la réponse") AS nb_repondants
+            FROM DONNEES_LIMESURVEY_NETTOYEES
+            WHERE {where}
+            AND "Question_Formulation" {filtre_public}
+            AND "Question_Formulation" LIKE '%globalement satisfait%'
+            AND CAST("Score" AS FLOAT) IN (1,2,3,4)
+        """
+        df = pd.read_sql_query(query, conn, params=params)
+        if not df.empty and df.iloc[0]['total'] > 0:
+            resultats.append(df.iloc[0])
+    return resultats
+
+def get_radar_thematique(id_structure, annee):
+    conn = get_connexion()
+    where, params = build_filtre(id_structure, annee)
+    thematiques = {
+        'Cadre de vie': ['cadre', 'hebergement', 'chambre', 'entretien', 'tenu'],
+        'Alimentation': ['repas', 'alimentation', 'manger', 'faim'],
+        'Hygiene et soins': ['propre', 'hygiene', 'soin', 'corporel'],
+        'Activites': ['activite', 'animation', 'loisir'],
+        'Relations sociales': ['relation', 'social', 'famille'],
+        'Bientraitance': ['securite', 'vigilant', 'respecte', 'mauvais'],
+        'Information': ['information', 'communication'],
+        'Conditions travail': ['travail', 'condition'],
+    }
+    resultats = []
+    for theme, mots_cles in thematiques.items():
+        params_theme = list(params)
+        parties = []
+        for m in mots_cles:
+            parties.append('Question_Formulation LIKE ?')
+            params_theme.append('%' + m + '%')
+        conditions = ' OR '.join(parties)
+        query = (
+            'SELECT ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_accord, '
+            'COUNT(*) AS total FROM DONNEES_LIMESURVEY_NETTOYEES '
+            'WHERE ' + where + ' AND (' + conditions + ') AND CAST("Score" AS FLOAT) IN (1,2,3,4)'
+        )
+        df = pd.read_sql_query(query, conn, params=params_theme)
+        if not df.empty and df.iloc[0]['total'] > 0:
+            resultats.append({'theme': theme, 'pct_accord': float(df.iloc[0]['pct_accord'])})
+    return pd.DataFrame(resultats)
+
+def get_methodologie(id_structure, annee):
+    """Récupère les vraies données de méthodologie depuis QUESTIONNAIRE_MAPPING"""
+    conn = get_connexion()
+    if id_structure and annee:
+        # Chercher l'établissement dans STRUCTURE
+        df_struct = pd.read_sql_query(
+            f"SELECT Structure FROM STRUCTURE WHERE Id_structure = {id_structure}", conn
+        )
+        if df_struct.empty:
+            return []
+        nom_etab = df_struct.iloc[0]['Structure']
+        
+        # Chercher dans QUESTIONNAIRE_MAPPING
+        df_map = pd.read_sql_query(
+            f"SELECT Public, Reponses FROM QUESTIONNAIRE_MAPPING WHERE Etablissement = '{nom_etab}' AND Annee = {annee}",
+            conn
+        )
+        
+        if not df_map.empty:
+            resultats = []
+            for _, row in df_map.iterrows():
+                public = row['Public']
+                nb_rep = int(row['Reponses']) if pd.notna(row['Reponses']) else 0
+                
+                # Format de collecte selon le public
+                if 'Résident' in public or 'Habitant' in public:
+                    format_collecte = 'Présentiel (Entretiens)'
+                    couleur = '#E8706A'
+                elif 'Proche' in public:
+                    format_collecte = 'Distanciel (Email)'
+                    couleur = '#6BBFB5'
+                else:
+                    format_collecte = 'Distanciel (En ligne)'
+                    couleur = '#F5A623'
+                
+                resultats.append({
+                    'public': public,
+                    'nb_repondants': nb_rep,
+                    'format': format_collecte,
+                    'couleur': couleur
+                })
+            return resultats
+    return []
+
 # ALGORITHME LABEL VIVRE
 
 QUESTIONS_ESSENTIELLES = [
@@ -629,11 +762,11 @@ if st.session_state.page == 'dashboard':
     else:
         st.markdown("<div class='section-title'> Rapport — Tous les établissements</div>", unsafe_allow_html=True)
 
-    # VÉRIFICATION : données disponibles pour cette sélection ?
+    # VÉRIFICATION données disponibles
     if pd.isna(nps['NPS']) or int(nps['total']) == 0:
         nom_etab = nom_actif if id_structure_actif else "cet établissement"
         annee_msg = f"en {annee_active}" if annee_active else ""
-        st.warning(f"⚠️ Aucune donnée disponible pour **{nom_etab}** {annee_msg}. Veuillez sélectionner une autre année ou importer les données correspondantes.")
+        st.warning(f" Aucune donnée disponible pour **{nom_etab}** {annee_msg}.")
         st.stop()
 
     # CRÉATION DES ONGLETS
@@ -647,27 +780,22 @@ if st.session_state.page == 'dashboard':
 
     # ONGLET 1 : SYNTHÈSE
     with tab_synthese:
-        
-        # --- 1. FILTRE PAR PUBLIC ---
-        st.markdown("###  Filtrer par Public")
+        # Filtre par public
         choix_public = st.radio(
-            "Sélectionnez le public à analyser :",
+            " Filtrer par public :",
             options=["Tous les publics", "Résidents", "Proches", "Équipe"],
             horizontal=True
         )
-
-        conn = get_connexion()
-        where_clause, params = build_filtre(id_structure_actif, annee_active)
-        query = f"""
-            SELECT "Question_Formulation", CAST("Score" AS FLOAT) as Score 
-            FROM DONNEES_LIMESURVEY_NETTOYEES 
-            WHERE {where_clause} 
-            AND "Question_Formulation" NOT LIKE 'Durée%' 
+        conn_dash = get_connexion()
+        where_dash, params_dash = build_filtre(id_structure_actif, annee_active)
+        df_donnees = pd.read_sql_query(f"""
+            SELECT "Question_Formulation", CAST("Score" AS FLOAT) as Score
+            FROM DONNEES_LIMESURVEY_NETTOYEES
+            WHERE {where_dash}
+            AND "Question_Formulation" NOT LIKE 'Durée%'
             AND "Question_Formulation" NOT LIKE 'Commentaire%'
-        """
-        df_donnees = pd.read_sql_query(query, conn, params=params)
-        
-        # On part de la variable contenant toutes les données 
+        """, conn_dash, params=params_dash)
+
         if choix_public == "Résidents":
             df_filtre = df_donnees[df_donnees['Question_Formulation'].str.contains('résident|habitant', case=False, na=False)]
         elif choix_public == "Proches":
@@ -677,89 +805,135 @@ if st.session_state.page == 'dashboard':
         else:
             df_filtre = df_donnees.copy()
 
-        # --- 2. RECALCUL DYNAMIQUE DU NPS ---
-        # On isole les scores valides (1 à 4)
         df_valide = df_filtre[df_filtre['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
         total_rep = len(df_valide)
-
         if total_rep > 0:
             nb_prom = len(df_valide[df_valide['Score'] == 4.0])
             nb_pass = len(df_valide[df_valide['Score'] == 3.0])
             nb_detr = len(df_valide[df_valide['Score'].isin([1.0, 2.0])])
-
-            nps = {
-                'NPS': round(((nb_prom / total_rep) * 100) - ((nb_detr / total_rep) * 100), 1),
-                'pct_promoteurs': round((nb_prom / total_rep) * 100, 1),
-                'pct_passifs': round((nb_pass / total_rep) * 100, 1),
-                'pct_detracteurs': round((nb_detr / total_rep) * 100, 1),
+            nps_filtre = {
+                'NPS': round(((nb_prom/total_rep)*100)-((nb_detr/total_rep)*100), 1),
+                'pct_promoteurs': round((nb_prom/total_rep)*100, 1),
+                'pct_passifs': round((nb_pass/total_rep)*100, 1),
+                'pct_detracteurs': round((nb_detr/total_rep)*100, 1),
                 'total': total_rep
             }
         else:
-            nps = {'NPS': 0, 'pct_promoteurs': 0, 'pct_passifs': 0, 'pct_detracteurs': 0, 'total': 0}
+            nps_filtre = {'NPS': 0, 'pct_promoteurs': 0, 'pct_passifs': 0, 'pct_detracteurs': 0, 'total': 0}
 
         st.markdown("<hr>", unsafe_allow_html=True)
-
-        # --- 3. AFFICHAGE DES KPI (Ton code) ---
         col1, col2, col3, col4, col5 = st.columns(5)
-        valeur_nps = nps['NPS'] if pd.notna(nps['NPS']) else 0
-        couleur_nps = "#6BBFB5" if valeur_nps >= 30 else "#E8706A"
-        affichage_nps = nps['NPS'] if pd.notna(nps['NPS']) else "N/A"
-
+        couleur_nps = "#6BBFB5" if nps_filtre['NPS'] >= 30 else "#E8706A"
         with col1:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{affichage_nps}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS</div><div class='kpi-value' style='color:{couleur_nps};'>{nps_filtre['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps_filtre['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
         with col3:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps['pct_passifs']}%</div><div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps_filtre['pct_passifs']}%</div><div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps['pct_detracteurs']}%</div><div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps_filtre['pct_detracteurs']}%</div><div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
         with col5:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps_filtre['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns(2)
-
-        # --- 4. GRAPHIQUE BARRES (Recalcul dynamique) ---
         with col_left:
             st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
-            
-            # Fonction pour catégoriser la question
             def attribuer_public(q):
                 q = str(q).lower()
                 if 'résident' in q or 'habitant' in q: return 'Résidents'
                 if 'proche' in q: return 'Proches'
                 if 'équipe' in q or 'salarié' in q: return 'Équipe'
                 return 'Autre'
-                
             df_valide['public'] = df_valide['Question_Formulation'].apply(attribuer_public)
-            scores_public = df_valide.groupby('public')['Score'].mean().reset_index()
-            scores_public.rename(columns={'Score': 'score_moyen'}, inplace=True)
-            scores_public['score_moyen'] = scores_public['score_moyen'].round(2)
-
-            df_pub = scores_public[scores_public['public'] != 'Autre'].copy()
+            scores_pub_calc = df_valide.groupby('public')['Score'].mean().reset_index()
+            scores_pub_calc.rename(columns={'Score': 'score_moyen'}, inplace=True)
+            scores_pub_calc['score_moyen'] = scores_pub_calc['score_moyen'].round(2)
+            df_pub = scores_pub_calc[scores_pub_calc['public'] != 'Autre'].copy()
             couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
-            
-            # On vérifie s'il y a des données à afficher
             if not df_pub.empty:
                 fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
                 fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
                 fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
                 st.plotly_chart(fig_bar, use_container_width=True)
-            else:
-                st.info("Aucun score moyen disponible pour ce filtre.")
-
-        # --- 5. GRAPHIQUE PIE  ---
         with col_right:
             st.markdown("<div class='section-title'> Répartition NPS</div>", unsafe_allow_html=True)
             if total_rep > 0:
-                fig_pie = go.Figure(data=[go.Pie(labels=['Promoteurs', 'Passifs', 'Détracteurs'], values=[nps['pct_promoteurs'], nps['pct_passifs'], nps['pct_detracteurs']], hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A'])])
-                fig_pie.update_layout(title='Répartition des répondants', title_font_family='Georgia', paper_bgcolor='white', height=350, annotations=[dict(text=f'NPS<br>{nps["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)])
+                fig_pie = go.Figure(data=[go.Pie(labels=['Promoteurs', 'Passifs', 'Détracteurs'], values=[nps_filtre['pct_promoteurs'], nps_filtre['pct_passifs'], nps_filtre['pct_detracteurs']], hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A'])])
+                fig_pie.update_layout(title='Répartition des répondants', title_font_family='Georgia', paper_bgcolor='white', height=350, annotations=[dict(text=f'NPS<br>{nps_filtre["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)])
                 st.plotly_chart(fig_pie, use_container_width=True)
-            else:
-                st.info("Aucune donnée NPS disponible pour ce filtre.")
 
     # ONGLET 2 : THÉMATIQUES
     with tab_thematique:
+        couleurs_pub = {'Résidents': '#E8706A', 'Proches': '#6BBFB5', 'Équipe': '#F5A623'}
+
+        # Satisfaction globale
+        st.markdown("<div class='section-title'> Satisfaction globale par public</div>", unsafe_allow_html=True)
+        st.caption("Question : 'Je suis globalement satisfait(e) de cet établissement' — % Total d'accord (Tout à fait + Plutôt d'accord)")
+        sat_globale = get_satisfaction_globale_par_public(id_structure_actif, annee_active)
+        if sat_globale:
+            cols_sat = st.columns(len(sat_globale))
+            for i, row in enumerate(sat_globale):
+                with cols_sat[i]:
+                    couleur = couleurs_pub.get(row['public'], '#5C5C5C')
+                    st.markdown(f"""<div class='kpi-card' style='border-top:5px solid {couleur};'>
+                        <div class='kpi-label' style='color:{couleur};font-weight:bold;font-size:1rem;'>{row['public']}</div>
+                        <div class='kpi-value' style='color:{couleur};'>{int(row['pct_accord'])}%</div>
+                        <div class='kpi-label'>Total d'accord</div>
+                        <div style='font-size:0.8rem;color:#888;margin-top:6px;'> {int(row['pct_tout_fait'])}% tout à fait ·  {int(row['pct_plutot'])}% plutôt</div>
+                        <div style='font-size:0.8rem;color:#E8706A;'> {int(row['pct_desaccord'])}% pas d'accord</div>
+                        <div style='font-size:0.75rem;color:#aaa;margin-top:4px;'>{int(row['nb_repondants'])} répondants</div>
+                    </div>""", unsafe_allow_html=True)
+        else:
+            st.info("Aucune question de satisfaction globale trouvée dans les données.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # NPS par public
+        st.markdown("<div class='section-title'>📊 NPS (Indice de recommandation) par public</div>", unsafe_allow_html=True)
+        st.caption("Calculé à partir de la question 'Je recommande cet établissement' — Score 4 = Promoteur, Score 3 = Passif, Score 1-2 = Détracteur")
+        nps_par_public = get_nps_par_public(id_structure_actif, annee_active)
+        if nps_par_public:
+            cols_nps = st.columns(len(nps_par_public))
+            for i, row in enumerate(nps_par_public):
+                with cols_nps[i]:
+                    couleur = couleurs_pub.get(row['public'], '#5C5C5C')
+                    nps_val = int(row['NPS']) if pd.notna(row['NPS']) else 'N/A'
+                    couleur_nps_pub = couleur if pd.notna(row['NPS']) and row['NPS'] >= 30 else "#E8706A"
+                    st.markdown(f"""<div class='kpi-card' style='border-top:5px solid {couleur};'>
+                        <div class='kpi-label' style='color:{couleur};font-weight:bold;font-size:1rem;'>{row['public']}</div>
+                        <div class='kpi-value' style='color:{couleur_nps_pub};'>{nps_val}</div>
+                        <div class='kpi-label'>Net Promoter Score</div>
+                        <div style='font-size:0.8rem;color:#888;margin-top:6px;'>Promoteurs: {row['pct_promoteurs']}% · Détracteurs: {row['pct_detracteurs']}%</div>
+                        <div style='font-size:0.75rem;color:#aaa;'>{int(row['total'])} réponses analysées</div>
+                    </div>""", unsafe_allow_html=True)
+
+        st.markdown("<br>", unsafe_allow_html=True)
+
+        # Radar chart
+        st.markdown("<div class='section-title'>🕸️ Synthèse thématique — % Total d'accord par domaine</div>", unsafe_allow_html=True)
+        st.caption("Pourcentage de réponses 'Tout à fait d'accord' + 'Plutôt d'accord' pour chaque domaine thématique")
+        df_radar = get_radar_thematique(id_structure_actif, annee_active)
+        if not df_radar.empty:
+            categories = df_radar['theme'].tolist()
+            values = df_radar['pct_accord'].tolist()
+            values_closed = values + [values[0]]
+            categories_closed = categories + [categories[0]]
+            fig_radar = go.Figure()
+            fig_radar.add_trace(go.Scatterpolar(
+                r=values_closed, theta=categories_closed,
+                fill='toself', fillcolor='rgba(107,191,181,0.2)',
+                line=dict(color='#6BBFB5', width=2), name='Établissement'
+            ))
+            fig_radar.update_layout(
+                polar=dict(radialaxis=dict(visible=True, range=[0,100], ticksuffix='%')),
+                showlegend=True, paper_bgcolor='white', height=500, font_family='Georgia'
+            )
+            st.plotly_chart(fig_radar, use_container_width=True)
+        else:
+            st.info("Pas assez de données pour le radar chart.")
+
+        st.markdown("<br>", unsafe_allow_html=True)
         col_top, col_flop = st.columns(2)
         with col_top:
             st.markdown("<div class='section-title'> Top 10 meilleures questions</div>", unsafe_allow_html=True)
@@ -792,7 +966,7 @@ if st.session_state.page == 'dashboard':
                     st.success(f"**{row['public']} :** « {row['commentaire']} »")
                     
             with col_neg:
-                st.markdown("### 🛠️ Pistes d'amélioration")
+                st.markdown("###  Pistes d'amélioration")
                 for _, row in top_suggestions.iterrows():
                     st.warning(f"**{row['public']} :** « {row['commentaire']} »")
         else:
@@ -800,14 +974,33 @@ if st.session_state.page == 'dashboard':
 
     # ONGLET 4 : MÉTHODOLOGIE
     with tab_methodo:
-        st.markdown("<div class='section-title'>Méthodologie - Échantillons</div>", unsafe_allow_html=True)
-        col_m1, col_m2, col_m3 = st.columns(3)
-        with col_m1:
-            st.markdown("<div class='kpi-card' style='border-top: 5px solid #E8706A;'><h3 style='color:#E8706A;'>Résidents</h3><p>Présentiel (Entretiens)</p><h2 style='color:#5C5C5C;'>44%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
-        with col_m2:
-            st.markdown("<div class='kpi-card' style='border-top: 5px solid #6BBFB5;'><h3 style='color:#6BBFB5;'>Proches</h3><p>Distanciel (Email)</p><h2 style='color:#5C5C5C;'>53%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
-        with col_m3:
-            st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>Équipe</h3><p>Distanciel (En ligne)</p><h2 style='color:#5C5C5C;'>99%</h2><p style='color:#888;'>Taux de réponse</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'> Méthodologie — Échantillons</div>", unsafe_allow_html=True)
+        
+        methodo = get_methodologie(id_structure_actif, annee_active)
+        
+        if methodo:
+            cols_m = st.columns(len(methodo))
+            for i, item in enumerate(methodo):
+                with cols_m[i]:
+                    st.markdown(f"""<div class='kpi-card' style='border-top: 5px solid {item['couleur']};'>
+                        <h3 style='color:{item['couleur']};'>{item['public']}</h3>
+                        <p style='color:#888;'>{item['format']}</p>
+                        <h2 style='color:#5C5C5C;'>{item['nb_repondants']}</h2>
+                        <p style='color:#888;'>répondants</p>
+                    </div>""", unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.info(" **Source des données :** Les informations ci-dessus proviennent directement des exports LimeSurvey importés dans la plateforme.")
+        else:
+            # Affichage générique si pas de données dans le mapping
+            st.markdown("<div class='section-title'>Méthodologie — Données générales</div>", unsafe_allow_html=True)
+            col_m1, col_m2, col_m3 = st.columns(3)
+            with col_m1:
+                st.markdown("<div class='kpi-card' style='border-top: 5px solid #E8706A;'><h3 style='color:#E8706A;'>Résidents</h3><p>Présentiel (Entretiens)</p></div>", unsafe_allow_html=True)
+            with col_m2:
+                st.markdown("<div class='kpi-card' style='border-top: 5px solid #6BBFB5;'><h3 style='color:#6BBFB5;'>Proches</h3><p>Distanciel (Email)</p></div>", unsafe_allow_html=True)
+            with col_m3:
+                st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>Équipe</h3><p>Distanciel (En ligne)</p></div>", unsafe_allow_html=True)
     
     # ONGLET 5 : ASSISTANT IA (LE "MAGIC TRICK" POUR LA SOUTENANCE)
     with tab_ia:
@@ -1071,12 +1264,30 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
                         df_long['Date de soumission'], errors='coerce'
                     ).dt.year.astype('Int64')
 
-                    # Id_structure simulé (à mettre à jour quand client répond)
-                    import random
-                    random.seed(42)
-                    ids = df_long['ID de la réponse'].unique()
-                    mapping = {id_rep: random.choice(list(range(1, 20))) for id_rep in ids}
-                    df_long['Id_structure'] = df_long['ID de la réponse'].map(mapping)
+                    # Mapping réel depuis QUESTIONNAIRE_MAPPING
+                    import re as re_module
+                    match = re_module.search(r'(\d+)', fichier.name)
+                    id_questionnaire = match.group(1) if match else None
+                    if id_questionnaire:
+                        chemin_bdd_map = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+                        conn_map = sqlite3.connect(chemin_bdd_map)
+                        df_map = pd.read_sql_query(
+                            "SELECT Id_questionnaire, Etablissement, Annee FROM QUESTIONNAIRE_MAPPING WHERE Id_questionnaire = '" + id_questionnaire + "'",
+                            conn_map
+                        )
+                        df_struct = pd.read_sql_query('SELECT Id_structure, Structure FROM STRUCTURE', conn_map)
+                        conn_map.close()
+                        if not df_map.empty:
+                            etablissement = df_map.iloc[0]['Etablissement']
+                            annee_map = int(df_map.iloc[0]['Annee'])
+                            row_s = df_struct[df_struct['Structure'].str.strip() == etablissement.strip()]
+                            id_structure_reel = int(row_s.iloc[0]['Id_structure']) if not row_s.empty else None
+                            df_long['Id_structure'] = id_structure_reel
+                            df_long['Annee'] = annee_map
+                        else:
+                            df_long['Id_structure'] = None
+                    else:
+                        df_long['Id_structure'] = None
 
                     tous_les_tableaux.append(df_long)
                     progress.progress((i + 1) / len(fichiers_uploades))
