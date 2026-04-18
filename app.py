@@ -890,7 +890,7 @@ if st.session_state.page == 'dashboard':
         st.markdown("<br>", unsafe_allow_html=True)
 
         # NPS par public
-        st.markdown("<div class='section-title'>📊 NPS (Indice de recommandation) par public</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'> NPS (Indice de recommandation) par public</div>", unsafe_allow_html=True)
         st.caption("Calculé à partir de la question 'Je recommande cet établissement' — Score 4 = Promoteur, Score 3 = Passif, Score 1-2 = Détracteur")
         nps_par_public = get_nps_par_public(id_structure_actif, annee_active)
         if nps_par_public:
@@ -911,7 +911,7 @@ if st.session_state.page == 'dashboard':
         st.markdown("<br>", unsafe_allow_html=True)
 
         # Radar chart
-        st.markdown("<div class='section-title'>🕸️ Synthèse thématique — % Total d'accord par domaine</div>", unsafe_allow_html=True)
+        st.markdown("<div class='section-title'> Synthèse thématique — % Total d'accord par domaine</div>", unsafe_allow_html=True)
         st.caption("Pourcentage de réponses 'Tout à fait d'accord' + 'Plutôt d'accord' pour chaque domaine thématique")
         df_radar = get_radar_thematique(id_structure_actif, annee_active)
         if not df_radar.empty:
@@ -1416,7 +1416,7 @@ elif st.session_state.page == 'mon_compte':
 # PAGE GESTION DES COMPTES — Admin uniquement
 # ============================================================
 elif st.session_state.page == 'gestion_comptes' and st.session_state.profil == "admin":
-    st.markdown("<div class='section-title'>👥 Gestion des comptes</div>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'> Gestion des comptes</div>", unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs([" Mon mot de passe", " Réinitialiser un établissement"])
 
