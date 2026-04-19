@@ -74,20 +74,18 @@ for nom_fichier in liste_fichiers:
 print("\n FUSION DES 9 FICHIERS EN COURS...")
 df_final = pd.concat(tous_les_tableaux, ignore_index=True)
 
-# ================================================================
+
 # TÂCHE 18 — Ajout colonne Annee (extraite de la date de soumission)
-# ================================================================
+
 df_final['Annee'] = pd.to_datetime(
     df_final['Date de soumission'], errors='coerce'
 ).dt.year.astype('Int64')
 
-# ================================================================
-# TÂCHE 18 — Ajout colonne Id_structure (simulée en attendant
-# la réponse du client sur l'identification LimeSurvey)
-# Chaque répondant unique est assigné aléatoirement à un
-# établissement EHPAD (Id 1 à 19).
+
+# TÂCHE 18 — Ajout colonne Id_structure (simulée en attendant la réponse du client sur l'identification LimeSurvey)
+# Chaque répondant unique est assigné aléatoirement à un établissement EHPAD (Id 1 à 19).
 # À METTRE À JOUR quand le client fournit le vrai identifiant.
-# ================================================================
+
 random.seed(42)
 ids_repondants = df_final['ID de la réponse'].unique()
 ehpad_ids = list(range(1, 20))  # 19 EHPAD dans la table STRUCTURE
