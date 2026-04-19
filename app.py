@@ -257,9 +257,9 @@ L'accès à cette plateforme est réservé aux administrateurs et aux directions
                     st.error(" Identifiant inconnu.")
     st.stop()
 
-# ============================================================
+
 # CONNEXION BASE DE DONNÉES
-# ============================================================
+
 @st.cache_resource
 def get_connexion():
     chemin = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
@@ -628,7 +628,7 @@ def get_verdict_label(scores_public, criteres):
 
 
 # NAVIGATION
-# Le bouton "Importer" est visible uniquement pour l'admin (Stéphane Dardelet)
+# Le bouton "Importer" est visible uniquement pour l'admin 
 
 if st.session_state.profil == "admin":
     # Admin : 7 colonnes avec bouton Import
@@ -692,9 +692,9 @@ else:
         st.markdown("<p style='text-align:center; padding-top:6px;'><span class='badge-etab' style='font-size:0.55rem; padding:2px 4px; white-space:nowrap; display:block;'>Établissement</span></p>", unsafe_allow_html=True)
 st.markdown("---")
 
-# ============================================================
+
 # BARRE DE FILTRES 
-# ============================================================
+
 df_structures = get_structures()
 annees_dispo = get_annees()
 
@@ -739,9 +739,9 @@ id_structure_actif = st.session_state.filtre_structure
 annee_active = st.session_state.filtre_annee
 
 
-# ============================================================
+
 # PAGE DASHBOARD (DESIGN PDF VIA ONGLETS)
-# ============================================================
+
 if st.session_state.page == 'dashboard':
 
     nps = get_nps(id_structure_actif, annee_active)
@@ -995,7 +995,7 @@ if st.session_state.page == 'dashboard':
             with col_m3:
                 st.markdown("<div class='kpi-card' style='border-top: 5px solid #F5A623;'><h3 style='color:#F5A623;'>Équipe</h3><p>Distanciel (En ligne)</p></div>", unsafe_allow_html=True)
     
-    # ONGLET 5 : ASSISTANT IA (LE "MAGIC TRICK" POUR LA SOUTENANCE)
+    # ONGLET 5 : ASSISTANT IA 
     with tab_ia:
         st.markdown("<div class='section-title'> Assistant Conversationnel (Chat with Data)</div>", unsafe_allow_html=True)
         st.info(" **Mode Démonstration SaaS :** Cet assistant illustre la future fonctionnalité 'Text-to-SQL' et 'Analyse Sémantique' (NLP) de la plateforme.")
@@ -1013,7 +1013,7 @@ if st.session_state.page == 'dashboard':
         if col_q2.button(" Quelles évolutions dans les verbatims salariés ?"):
             st.session_state.demo_prompt = "Quelles sont les principales évolutions observées dans les verbatims partagés par les salariés sur leurs conditions de travail ?"
 
-        # 2. La barre de chat (Interface ChatGPT native de Streamlit)
+        # 2. La barre de chat 
         prompt = st.chat_input("Posez votre question à la base de données...")
 
         # Si l'utilisateur a cliqué sur un bouton, on remplit le prompt avec la question du bouton
@@ -1027,7 +1027,7 @@ if st.session_state.page == 'dashboard':
             with st.chat_message("user"):
                 st.write(prompt)
 
-            # Bulle de l'IA
+            
             with st.chat_message("assistant"):
                 import time
                 
@@ -1046,9 +1046,9 @@ if st.session_state.page == 'dashboard':
                 else:
                     st.write("Je suis un démonstrateur . Pour cette présentation, demandez-moi plutôt les statistiques socio-démographiques ou l'analyse des commentaires salariés !")
 
-# ============================================================
+
 # PAGE DONNÉES BRUTES
-# ============================================================
+
 elif st.session_state.page == 'donnees':
     st.markdown("<div class='section-title'> Données brutes LimeSurvey</div>", unsafe_allow_html=True)
     limite = st.slider("Nombre de lignes à afficher", 10, 500, 100)
@@ -1061,9 +1061,9 @@ elif st.session_state.page == 'donnees':
     st.dataframe(df_brut, use_container_width=True, height=400)
     st.info(f" {len(df_brut)} lignes affichées")
 
-# ============================================================
+
 # PAGE EXPORT
-# ============================================================
+
 elif st.session_state.page == 'export':
     st.markdown("<div class='section-title'> Export des données</div>", unsafe_allow_html=True)
 
@@ -1098,9 +1098,9 @@ elif st.session_state.page == 'export':
     csv_brut = df_brut.to_csv(index=False, encoding='utf-8')
     st.download_button(label="Télécharger données brutes (CSV)", data=csv_brut, file_name=f"donnees_brutes_{nom_export}_{annee_export}.csv", mime="text/csv", use_container_width=True)
 
-# ============================================================
+
 # PAGE LABEL VIVRE 
-# ============================================================
+
 elif st.session_state.page == 'label':
     st.markdown("<div class='section-title'> Algorithme Label Vivre</div>", unsafe_allow_html=True)
     if id_structure_actif:
