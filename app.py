@@ -1167,7 +1167,7 @@ elif st.session_state.page == 'label':
 # ============================================================
 # =====  PAGE IMPORT DES DONNÉES =========
 # ============================================================
-# Visible uniquement pour l'admin (Stéphane Dardelet)
+# Visible uniquement pour l'admin 
 # Permet d'uploader les 9 fichiers xlsx LimeSurvey directement
 # depuis l'interface sans passer par le terminal
 # ============================================================
