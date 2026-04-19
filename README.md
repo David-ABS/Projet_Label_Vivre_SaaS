@@ -30,6 +30,30 @@ Graphiques : Plotly Express (Interactifs)
 🗺️ Diagramme de Flux (Architecture)
 Voici comment la donnée circule depuis l'import Excel jusqu'à l'interface utilisateur :
 
+---
+
+## 🗺️ Architecture & Flux de données
+Le projet repose sur une séparation stricte entre les données brutes et le moteur d'analyse.
+
+### 1. Diagramme de Flux (Utilisateur & Système)
+Le schéma complet détaillant le parcours de la donnée (de l'import à la visualisation) est disponible dans le dossier des ressources.
+![Diagramme de flux](assets/Diagramme_flux.drawio.png)
+
+### 2. Pipeline ETL : La "Moulinette" de Transformation
+Pour transformer les exports LimeSurvey (format "Large") en une base de données relationnelle (format "Long"), nous utilisons un script de transformation (ETL) basé sur Python et Pandas.
+
+**Le concept du Dépivotage (Melt) :**
+* **Format Source (LimeSurvey) :** Chaque question est une colonne. Inexploitable pour des calculs transversaux.
+* **Format Cible (SQLite) :** Chaque réponse devient une ligne unique liée à un `ID_Repondant` et un `Id_questionnaire`.
+
+| Étape | Action | Résultat |
+| :--- | :--- | :--- |
+| **Extract** | Lecture des 9 fichiers Excel | Chargement des DataFrames |
+| **Transform** | Opération `pd.melt()` | Conversion colonnes ➔ lignes |
+| **Load** | `df.to_sql()` | Injection dans la table `REPONSE` |
+
+---
+
 ✨ Fonctionnalités Majeures
 📊 Dashboard Dynamique : Visualisation du NPS global et des scores par thématique (Vie sociale, Restauration, Soins, etc.).
 
