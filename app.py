@@ -8,8 +8,6 @@ from werkzeug.security import check_password_hash
 from textblob import TextBlob
 
 
-# CONFIGURATION PAGE ET CSS (AVEC L'ASTUCE PDF)
-
 st.set_page_config(
     page_title="Label Vivre",
     layout="wide",
@@ -177,10 +175,6 @@ with col_text:
     )
 
 
-# ================================================================
-# Les comptes sont stockés dans la table UTILISATEUR de SQLite
-# Plus besoin de les coder en dur ici
-# ================================================================
 def charger_comptes():
     """Charge tous les comptes depuis la table UTILISATEUR de SQLite."""
     try:
@@ -223,7 +217,6 @@ def logout():
     st.rerun()
 
 
-# PAGE LOGIN
 
 if st.session_state.identifiant is None:
     st.markdown("<h2 style='text-align:center; color:#F5A623;'>Accès Restreint</h2>", unsafe_allow_html=True)
