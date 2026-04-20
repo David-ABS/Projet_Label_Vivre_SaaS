@@ -343,17 +343,11 @@ def get_top_questions(id_structure, annee):
     conn = get_connexion()
     where, params = build_filtre(id_structure, annee)
     query = f"""
-        SELECT
-            "Question_Formulation" AS question,
-            ROUND(AVG(CAST("Score" AS FLOAT)), 2) AS score_moyen,
-            COUNT(*) AS nb_reponses
+        SELECT "Question_Formulation" AS question, ROUND(AVG(CAST("Score" AS FLOAT)), 2) AS score_moyen, COUNT(*) AS nb_reponses
         FROM DONNEES_LIMESURVEY_NETTOYEES
-        WHERE {where}
-        AND "Question_Formulation" NOT LIKE 'Durée%'
-        AND "Question_Formulation" NOT LIKE 'Commentaire%'
-        GROUP BY "Question_Formulation"
-        ORDER BY score_moyen DESC
-        LIMIT 10
+        WHERE {where} AND CAST("Score" AS FLOAT) IN (1.0, 2.0, 3.0, 4.0)
+        AND "Question_Formulation" NOT LIKE 'Durée%' AND "Question_Formulation" NOT LIKE 'Commentaire%'
+        GROUP BY "Question_Formulation" ORDER BY score_moyen DESC LIMIT 10
     """
     return pd.read_sql_query(query, conn, params=params)
 
@@ -361,17 +355,11 @@ def get_flop_questions(id_structure, annee):
     conn = get_connexion()
     where, params = build_filtre(id_structure, annee)
     query = f"""
-        SELECT
-            "Question_Formulation" AS question,
-            ROUND(AVG(CAST("Score" AS FLOAT)), 2) AS score_moyen,
-            COUNT(*) AS nb_reponses
+        SELECT "Question_Formulation" AS question, ROUND(AVG(CAST("Score" AS FLOAT)), 2) AS score_moyen, COUNT(*) AS nb_reponses
         FROM DONNEES_LIMESURVEY_NETTOYEES
-        WHERE {where}
-        AND "Question_Formulation" NOT LIKE 'Durée%'
-        AND "Question_Formulation" NOT LIKE 'Commentaire%'
-        GROUP BY "Question_Formulation"
-        ORDER BY score_moyen ASC
-        LIMIT 10
+        WHERE {where} AND CAST("Score" AS FLOAT) IN (1.0, 2.0, 3.0, 4.0)
+        AND "Question_Formulation" NOT LIKE 'Durée%' AND "Question_Formulation" NOT LIKE 'Commentaire%'
+        GROUP BY "Question_Formulation" ORDER BY score_moyen ASC LIMIT 10
     """
     return pd.read_sql_query(query, conn, params=params)
 
@@ -491,10 +479,10 @@ def get_satisfaction_globale_par_public(id_structure, annee):
 def get_radar_thematique(id_structure, annee):
     conn = get_connexion()
     where, params = build_filtre(id_structure, annee)
+    # SANS "Hygiène et soins"
     thematiques = {
         'Cadre de vie': ['cadre', 'hebergement', 'chambre', 'entretien', 'tenu'],
         'Alimentation': ['repas', 'alimentation', 'manger', 'faim'],
-        'Hygiene et soins': ['propre', 'hygiene', 'soin', 'corporel'],
         'Activites': ['activite', 'animation', 'loisir'],
         'Relations sociales': ['relation', 'social', 'famille'],
         'Bientraitance': ['securite', 'vigilant', 'respecte', 'mauvais'],
@@ -504,64 +492,36 @@ def get_radar_thematique(id_structure, annee):
     resultats = []
     for theme, mots_cles in thematiques.items():
         params_theme = list(params)
-        parties = []
-        for m in mots_cles:
-            parties.append('Question_Formulation LIKE ?')
-            params_theme.append('%' + m + '%')
+        parties = ['Question_Formulation LIKE ?' for _ in mots_cles]
+        for m in mots_cles: params_theme.append('%' + m + '%')
         conditions = ' OR '.join(parties)
-        query = (
-            'SELECT ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_accord, '
-            'COUNT(*) AS total FROM DONNEES_LIMESURVEY_NETTOYEES '
-            'WHERE ' + where + ' AND (' + conditions + ') AND CAST("Score" AS FLOAT) IN (1,2,3,4)'
-        )
+        query = f'SELECT ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*), 0) AS pct_accord, COUNT(*) AS total FROM DONNEES_LIMESURVEY_NETTOYEES WHERE {where} AND ({conditions}) AND CAST("Score" AS FLOAT) IN (1,2,3,4)'
         df = pd.read_sql_query(query, conn, params=params_theme)
         if not df.empty and df.iloc[0]['total'] > 0:
             resultats.append({'theme': theme, 'pct_accord': float(df.iloc[0]['pct_accord'])})
     return pd.DataFrame(resultats)
 
 def get_methodologie(id_structure, annee):
-    """Récupère les vraies données de méthodologie depuis QUESTIONNAIRE_MAPPING"""
     conn = get_connexion()
-    if id_structure and annee:
-        # Chercher l'établissement dans STRUCTURE
-        df_struct = pd.read_sql_query(
-            f"SELECT Structure FROM STRUCTURE WHERE Id_structure = {id_structure}", conn
-        )
-        if df_struct.empty:
-            return []
-        nom_etab = df_struct.iloc[0]['Structure']
-        
-        # Chercher dans QUESTIONNAIRE_MAPPING
-        df_map = pd.read_sql_query(
-            f"SELECT Public, Reponses FROM QUESTIONNAIRE_MAPPING WHERE Etablissement = '{nom_etab}' AND Annee = {annee}",
-            conn
-        )
-        
-        if not df_map.empty:
-            resultats = []
-            for _, row in df_map.iterrows():
-                public = row['Public']
-                nb_rep = int(row['Reponses']) if pd.notna(row['Reponses']) else 0
-                
-                # Format de collecte selon le public
-                if 'Résident' in public or 'Habitant' in public:
-                    format_collecte = 'Présentiel (Entretiens)'
-                    couleur = '#E8706A'
-                elif 'Proche' in public:
-                    format_collecte = 'Distanciel (Email)'
-                    couleur = '#6BBFB5'
-                else:
-                    format_collecte = 'Distanciel (En ligne)'
-                    couleur = '#F5A623'
-                
-                resultats.append({
-                    'public': public,
-                    'nb_repondants': nb_rep,
-                    'format': format_collecte,
-                    'couleur': couleur
-                })
-            return resultats
-    return []
+    where, params = build_filtre(id_structure, annee)
+    query = f"""
+        SELECT CASE 
+            WHEN "Question_Formulation" LIKE '%résident%' OR "Question_Formulation" LIKE '%habitant%' THEN 'Résidents'
+            WHEN "Question_Formulation" LIKE '%proche%' THEN 'Proches'
+            WHEN "Question_Formulation" LIKE '%équipe%' OR "Question_Formulation" LIKE '%salarié%' THEN 'Équipe'
+            ELSE 'Autre' END AS public, COUNT(DISTINCT "ID de la réponse") AS nb_repondants
+        FROM DONNEES_LIMESURVEY_NETTOYEES WHERE {where} AND "Question_Formulation" NOT LIKE 'Durée%' GROUP BY public
+    """
+    df = pd.read_sql_query(query, conn, params=params)
+    resultats = []
+    for _, row in df[df['public'] != 'Autre'].iterrows():
+        public = row['public']
+        format_col = 'Présentiel' if public == 'Résidents' else 'Distanciel (Email)' if public == 'Proches' else 'Distanciel (En ligne)'
+        couleur = '#E8706A' if public == 'Résidents' else '#6BBFB5' if public == 'Proches' else '#F5A623'
+        resultats.append({'public': public, 'nb_repondants': row['nb_repondants'], 'format': format_col, 'couleur': couleur})
+    ordre = {'Résidents': 1, 'Proches': 2, 'Équipe': 3}
+    resultats.sort(key=lambda x: ordre.get(x['public'], 4))
+    return resultats
 
 # ALGORITHME LABEL VIVRE
 
@@ -928,23 +888,27 @@ if st.session_state.page == 'dashboard':
 
         # Radar chart
         st.markdown("<div class='section-title'> Synthèse thématique — % Total d'accord par domaine</div>", unsafe_allow_html=True)
-        st.caption("Pourcentage de réponses 'Tout à fait d'accord' + 'Plutôt d'accord' pour chaque domaine thématique")
-        df_radar = get_radar_thematique(id_structure_actif, annee_active)
-        if not df_radar.empty:
+        st.caption("Comparaison de l'établissement avec la moyenne globale")
+        
+        df_radar_etab = get_radar_thematique(id_structure_actif, annee_active)
+        df_radar_global = get_radar_thematique(None, annee_active) # None = Tous les établissements
+
+        if not df_radar_etab.empty and not df_radar_global.empty:
+            df_radar_global.rename(columns={'pct_accord': 'moyenne_globale'}, inplace=True)
+            df_radar = pd.merge(df_radar_etab, df_radar_global, on='theme', how='left')
+
             categories = df_radar['theme'].tolist()
-            values = df_radar['pct_accord'].tolist()
-            values_closed = values + [values[0]]
-            categories_closed = categories + [categories[0]]
+            val_etab = df_radar['pct_accord'].tolist()
+            val_glob = df_radar['moyenne_globale'].tolist()
+
+            # Fermer le polygone
+            val_etab += [val_etab[0]]; val_glob += [val_glob[0]]; categories += [categories[0]]
+
             fig_radar = go.Figure()
-            fig_radar.add_trace(go.Scatterpolar(
-                r=values_closed, theta=categories_closed,
-                fill='toself', fillcolor='rgba(107,191,181,0.2)',
-                line=dict(color='#6BBFB5', width=2), name='Établissement'
-            ))
-            fig_radar.update_layout(
-                polar=dict(radialaxis=dict(visible=True, range=[0,100], ticksuffix='%')),
-                showlegend=True, paper_bgcolor='white', height=500, font_family='Georgia'
-            )
+            fig_radar.add_trace(go.Scatterpolar(r=val_glob, theta=categories, fill='none', line=dict(color='#F5A623', width=2, dash='dash'), name='Moyenne Globale'))
+            fig_radar.add_trace(go.Scatterpolar(r=val_etab, theta=categories, fill='toself', fillcolor='rgba(107,191,181,0.3)', line=dict(color='#6BBFB5', width=2), name='Cet Établissement'))
+
+            fig_radar.update_layout(polar=dict(radialaxis=dict(visible=True, range=[0,100], ticksuffix='%')), showlegend=True, paper_bgcolor='white', height=500, font_family='Georgia')
             st.plotly_chart(fig_radar, use_container_width=True)
         else:
             st.info("Pas assez de données pour le radar chart.")
@@ -1146,6 +1110,19 @@ elif st.session_state.page == 'label':
     else:
         st.markdown("""<div style='background:#FEF0F0; border:2px solid #E8706A; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#A32D2D; font-family:Georgia;'>Label Vivre non obtenu.</div><div style='color:#A32D2D; margin-top:8px;'>Un ou plusieurs critères ne sont pas atteints</div></div>""", unsafe_allow_html=True)
 
+st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'> Critère 1 — Critères essentiels (% réponses négatives)</div>", unsafe_allow_html=True)
+    st.caption("Règle : aucun critère ne doit dépasser 10% de réponses négatives · aucun ne doit dépasser 25%")
+
+    if not criteres.empty:
+        for _, row in criteres.iterrows():
+            couleur = "#6BBFB5" if row['pct_negatifs'] <= 10 else "#F5A623" if row['pct_negatifs'] <= 25 else "#E8706A"
+            pct_affiche = min(row['pct_negatifs'], 100)
+            st.markdown(f"""<div style='margin:10px 0; padding:12px; background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.06);'><div style='display:flex; justify-content:space-between; margin-bottom:6px;'><span style='font-size:0.85rem; color:#5C5C5C;'>{row['statut']} &nbsp; {row['question']}</span><span style='font-size:0.85rem; font-weight:bold; color:{couleur};'>{row['pct_negatifs']}% négatifs ({row['nb_negatifs']}/{row['total']})</span></div><div style='background:#eee; border-radius:6px; height:8px; position:relative;'><div style='background:{couleur}; width:{pct_affiche}%; height:8px; border-radius:6px;'></div><div style='position:absolute; left:10%; top:-2px; height:12px; width:2px; background:#888; border-radius:2px;' title='Seuil 10%'></div><div style='position:absolute; left:25%; top:-2px; height:12px; width:2px; background:#E8706A; border-radius:2px;' title='Seuil 25%'></div></div><div style='display:flex; justify-content:space-between; margin-top:2px;'><span style='font-size:0.7rem; color:#aaa;'>0%</span><span style='font-size:0.7rem; color:#888;'>│10%</span><span style='font-size:0.7rem; color:#E8706A;'>│25%</span><span style='font-size:0.7rem; color:#aaa;'>100%</span></div></div>""", unsafe_allow_html=True)
+    else:
+        st.warning("Aucun critère essentiel trouvé pour cet établissement.")
+
+
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'> Critère 2 — Expérience positive (score ≥ 7/10)</div>", unsafe_allow_html=True)
 
@@ -1165,17 +1142,6 @@ elif st.session_state.page == 'label':
     else:
         st.warning("Aucune donnée disponible pour cet établissement.")
 
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'> Critère 1 — Critères essentiels (% réponses négatives)</div>", unsafe_allow_html=True)
-    st.caption("Règle : aucun critère ne doit dépasser 10% de réponses négatives · aucun ne doit dépasser 25%")
-
-    if not criteres.empty:
-        for _, row in criteres.iterrows():
-            couleur = "#6BBFB5" if row['pct_negatifs'] <= 10 else "#F5A623" if row['pct_negatifs'] <= 25 else "#E8706A"
-            pct_affiche = min(row['pct_negatifs'], 100)
-            st.markdown(f"""<div style='margin:10px 0; padding:12px; background:white; border-radius:10px; box-shadow:0 1px 4px rgba(0,0,0,0.06);'><div style='display:flex; justify-content:space-between; margin-bottom:6px;'><span style='font-size:0.85rem; color:#5C5C5C;'>{row['statut']} &nbsp; {row['question']}</span><span style='font-size:0.85rem; font-weight:bold; color:{couleur};'>{row['pct_negatifs']}% négatifs ({row['nb_negatifs']}/{row['total']})</span></div><div style='background:#eee; border-radius:6px; height:8px; position:relative;'><div style='background:{couleur}; width:{pct_affiche}%; height:8px; border-radius:6px;'></div><div style='position:absolute; left:10%; top:-2px; height:12px; width:2px; background:#888; border-radius:2px;' title='Seuil 10%'></div><div style='position:absolute; left:25%; top:-2px; height:12px; width:2px; background:#E8706A; border-radius:2px;' title='Seuil 25%'></div></div><div style='display:flex; justify-content:space-between; margin-top:2px;'><span style='font-size:0.7rem; color:#aaa;'>0%</span><span style='font-size:0.7rem; color:#888;'>│10%</span><span style='font-size:0.7rem; color:#E8706A;'>│25%</span><span style='font-size:0.7rem; color:#aaa;'>100%</span></div></div>""", unsafe_allow_html=True)
-    else:
-        st.warning("Aucun critère essentiel trouvé pour cet établissement.")
 
     st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'> Récapitulatif</div>", unsafe_allow_html=True)
