@@ -55,15 +55,16 @@ Pour transformer les exports LimeSurvey (format "Large") en une base de données
 ---
 
 ✨ Fonctionnalités Majeures
-📊 Dashboard Dynamique : Visualisation du NPS global et des scores par thématique (Vie sociale, Restauration, Soins, etc.).
 
-🏅 Moteur de Labellisation : Algorithme vérifiant en temps réel l'éligibilité au label selon les seuils réglementaires du Critère 1 et 2.
+📊 Dashboard Dynamique : Visualisation épurée des KPIs stratégiques (NPS avec calcul strict Label Vivre, Satisfaction Moyenne, Vigilance Bientraitance). Analyse thématique via un Radar comparant l'établissement à la moyenne globale.
 
-💬 Analyse IA des Verbatims : Extraction automatique des points forts et des pistes d'amélioration via le traitement du langage naturel.
+🏅 Moteur de Labellisation : Algorithme vérifiant en temps réel l'éligibilité au label selon les seuils réglementaires du Critère 1 (Taux de réponses négatives) et du Critère 2 (Score sur 10 par public).
+
+💬 Analyse IA des Verbatims : Extraction automatique des points forts et des pistes d'amélioration via le traitement du langage naturel (TextBlob), avec segmentation automatique par type de public (Résident, Proche, Équipe).
 
 🤖 Assistant "Chat with Data" : Un démonstrateur d'IA conversationnelle permettant d'interroger la base de données en langage naturel (Démonstration de la vision SaaS 2026).
 
-📋 Méthodologie : Suivi précis des taux de réponse par public (Résidents, Proches, Équipe).
+📋 Méthodologie Dynamique : Fini les données figées. Le système calcule automatiquement le nombre réel de répondants uniques et les taux de réponse par public directement depuis la base LimeSurvey.
 
 📁 Structure des fichiers
 app.py : Application principale et gestion des droits d'accès.
