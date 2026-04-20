@@ -1110,7 +1110,7 @@ elif st.session_state.page == 'label':
     else:
         st.markdown("""<div style='background:#FEF0F0; border:2px solid #E8706A; border-radius:15px; padding:30px; text-align:center; margin-bottom:20px;'><div style='font-size:2rem; font-weight:bold; color:#A32D2D; font-family:Georgia;'>Label Vivre non obtenu.</div><div style='color:#A32D2D; margin-top:8px;'>Un ou plusieurs critères ne sont pas atteints</div></div>""", unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
     st.markdown("<div class='section-title'> Critère 1 — Critères essentiels (% réponses négatives)</div>", unsafe_allow_html=True)
     st.caption("Règle : aucun critère ne doit dépasser 10% de réponses négatives · aucun ne doit dépasser 25%")
 
