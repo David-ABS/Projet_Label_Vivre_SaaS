@@ -638,26 +638,18 @@ if st.session_state.profil == "admin":
     with col_nav1:
         if st.button(" Tableau de bord", use_container_width=True):
             st.session_state.page = 'dashboard'
-            st.session_state.filtre_structure = None
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav2:
         if st.button(" Label Vivre", use_container_width=True):
             st.session_state.page = 'label'
-            st.session_state.filtre_structure = None
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav3:
         if st.button(" Données brutes", use_container_width=True):
             st.session_state.page = 'donnees'
-            st.session_state.filtre_structure = None
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav4:
         if st.button(" Export", use_container_width=True):
             st.session_state.page = 'export'
-            st.session_state.filtre_structure = None
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav5:
         if st.button(" Importer", use_container_width=True):
@@ -678,22 +670,18 @@ else:
     with col_nav1:
         if st.button(" Tableau de bord", use_container_width=True):
             st.session_state.page = 'dashboard'
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav2:
         if st.button(" Label Vivre", use_container_width=True):
             st.session_state.page = 'label'
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav3:
         if st.button(" Données brutes", use_container_width=True):
             st.session_state.page = 'donnees'
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav4:
         if st.button(" Export", use_container_width=True):
             st.session_state.page = 'export'
-            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav5:
         if st.button(" Mon compte", use_container_width=True):
@@ -798,7 +786,7 @@ if st.session_state.page == 'dashboard':
         " Assistant IA"
     ])
 
-    # ONGLET 1 : SYNTHÈSE
+# ONGLET 1 : SYNTHÈSE
     with tab_synthese:
         # Filtre par public
         choix_public = st.radio(
@@ -827,73 +815,69 @@ if st.session_state.page == 'dashboard':
 
         df_valide = df_filtre[df_filtre['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
         total_rep = len(df_valide)
+        
+        # --- CALCUL NPS (Optimisé) ---
         if total_rep > 0:
             nb_prom = len(df_valide[df_valide['Score'].isin([3.0, 4.0])])
-            nb_pass = len(df_valide[df_valide['Score'] == 2.0])
             nb_detr = len(df_valide[df_valide['Score'] == 1.0])
-            nps_filtre = {
-                'NPS': round(((nb_prom/total_rep)*100)-((nb_detr/total_rep)*100), 1),
-                'pct_promoteurs': round((nb_prom/total_rep)*100, 1),
-                'pct_passifs': round((nb_pass/total_rep)*100, 1),
-                'pct_detracteurs': round((nb_detr/total_rep)*100, 1),
-                'total': total_rep
-            }
+            nps_val = round(((nb_prom/total_rep)*100)-((nb_detr/total_rep)*100), 1)
         else:
-            nps_filtre = {'NPS': 0, 'pct_promoteurs': 0, 'pct_passifs': 0, 'pct_detracteurs': 0, 'total': 0}
+            nps_val = 0
+
+        # --- NOUVEAUX CALCULS (Satisfaction & Maltraitance) ---
+        satisfaction_globale = round(df_valide['Score'].mean(), 1) if total_rep > 0 else "N/A"
+        df_maltraitance = df_valide[df_valide['Question_Formulation'].str.contains('maltraitance|sécurité|respect|violence|abus', case=False, na=False)]
+        score_maltraitance = f"{round(df_maltraitance['Score'].mean(), 1)}" if not df_maltraitance.empty else "N/A"
 
         st.markdown("<hr>", unsafe_allow_html=True)
-        col1, col2, col3, col4, col5 = st.columns(5)
-        couleur_nps = "#6BBFB5" if nps_filtre['NPS'] >= 30 else "#E8706A"
+        
+        # --- NOUVEL AFFICHAGE À 4 COLONNES (Plus clair, sans camembert) ---
+        col1, col2, col3, col4 = st.columns(4)
+        couleur_nps = "#6BBFB5" if nps_val >= 30 else "#E8706A"
+        
         with col1:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS</div><div class='kpi-value' style='color:{couleur_nps};'>{nps_filtre['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-card'><div class='kpi-label'>NPS Global</div><div class='kpi-value' style='color:{couleur_nps};'>{nps_val}</div></div>", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps_filtre['pct_promoteurs']}%</div><div class='kpi-label'>Score 3-4/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-card'><div class='kpi-label'>Satisfaction Moyenne</div><div class='kpi-value' style='color:#6BBFB5;'>{satisfaction_globale} / 4</div></div>", unsafe_allow_html=True)
         with col3:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps_filtre['pct_passifs']}%</div><div class='kpi-label'>Score 2/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-card'><div class='kpi-label'>Vigilance Bientraitance</div><div class='kpi-value' style='color:#F5A623;'>{score_maltraitance} / 4</div></div>", unsafe_allow_html=True)
         with col4:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps_filtre['pct_detracteurs']}%</div><div class='kpi-label'>Score 1/4</div></div>""", unsafe_allow_html=True)
-        with col5:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps_filtre['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"<div class='kpi-card'><div class='kpi-label'>Réponses Analysées</div><div class='kpi-value' style='color:#5C5C5C;'>{int(total_rep):,}</div></div>", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
-        col_left, col_right = st.columns(2)
-        with col_left:
-            couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
-            if choix_public == "Tous les publics":
-                # Recalculer sur toutes les données (pas df_valide déjà filtré)
-                st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
-                def attribuer_public(q):
-                    q = str(q).lower()
-                    if 'résident' in q or 'habitant' in q: return 'Résidents'
-                    if 'proche' in q: return 'Proches'
-                    if 'équipe' in q or 'salarié' in q: return 'Équipe'
-                    return 'Autre'
-                df_tous = df_donnees[df_donnees['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
-                df_tous['public'] = df_tous['Question_Formulation'].apply(attribuer_public)
-                scores_pub_calc = df_tous.groupby('public')['Score'].mean().reset_index()
-                scores_pub_calc.rename(columns={'Score': 'score_moyen'}, inplace=True)
-                scores_pub_calc['score_moyen'] = scores_pub_calc['score_moyen'].round(2)
-                df_pub = scores_pub_calc[scores_pub_calc['public'] != 'Autre'].copy()
-                if not df_pub.empty:
-                    fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
-                    fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
-                    fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
-                    st.plotly_chart(fig_bar, use_container_width=True)
-            else:
-                # Afficher uniquement la barre du public sélectionné
-                st.markdown(f"<div class='section-title'> Score moyen — {choix_public}</div>", unsafe_allow_html=True)
-                score_public_unique = round(df_valide['Score'].mean(), 2) if total_rep > 0 else 0
-                df_pub_unique = pd.DataFrame([{'public': choix_public, 'score_moyen': score_public_unique}])
-                fig_bar = px.bar(df_pub_unique, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
+        
+        # --- GRAPHIQUE EN BARRES SEUL (Prend toute la largeur) ---
+        couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
+        
+        if choix_public == "Tous les publics":
+            st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
+            def attribuer_public(q):
+                q = str(q).lower()
+                if 'résident' in q or 'habitant' in q: return 'Résidents'
+                if 'proche' in q: return 'Proches'
+                if 'équipe' in q or 'salarié' in q: return 'Équipe'
+                return 'Autre'
+            
+            df_tous = df_donnees[df_donnees['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
+            df_tous['public'] = df_tous['Question_Formulation'].apply(attribuer_public)
+            scores_pub_calc = df_tous.groupby('public')['Score'].mean().reset_index()
+            scores_pub_calc.rename(columns={'Score': 'score_moyen'}, inplace=True)
+            scores_pub_calc['score_moyen'] = scores_pub_calc['score_moyen'].round(2)
+            df_pub = scores_pub_calc[scores_pub_calc['public'] != 'Autre'].copy()
+            
+            if not df_pub.empty:
+                fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
                 fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
                 fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
                 st.plotly_chart(fig_bar, use_container_width=True)
-        with col_right:
-            st.markdown("<div class='section-title'> Répartition NPS</div>", unsafe_allow_html=True)
-            if total_rep > 0:
-                fig_pie = go.Figure(data=[go.Pie(labels=['Promoteurs', 'Passifs', 'Détracteurs'], values=[nps_filtre['pct_promoteurs'], nps_filtre['pct_passifs'], nps_filtre['pct_detracteurs']], hole=0.4, marker_colors=['#6BBFB5', '#F5A623', '#E8706A'])])
-                fig_pie.update_layout(title='Répartition des répondants', title_font_family='Georgia', paper_bgcolor='white', height=350, annotations=[dict(text=f'NPS<br>{nps_filtre["NPS"]}', x=0.5, y=0.5, font_size=18, showarrow=False)])
-                st.plotly_chart(fig_pie, use_container_width=True)
+        else:
+            st.markdown(f"<div class='section-title'> Score moyen — {choix_public}</div>", unsafe_allow_html=True)
+            score_public_unique = round(df_valide['Score'].mean(), 2) if total_rep > 0 else 0
+            df_pub_unique = pd.DataFrame([{'public': choix_public, 'score_moyen': score_public_unique}])
+            fig_bar = px.bar(df_pub_unique, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
+            fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
+            fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
+            st.plotly_chart(fig_bar, use_container_width=True)
 
     # ONGLET 2 : THÉMATIQUES
     with tab_thematique:
