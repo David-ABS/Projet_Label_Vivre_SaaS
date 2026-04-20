@@ -301,17 +301,18 @@ def get_nps(id_structure, annee):
     query = f"""
         SELECT
             COUNT(*) AS total,
-            ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_promoteurs,
-            ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 3 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_passifs,
-            ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_detracteurs,
+            ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_promoteurs,
+            ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 2 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_passifs,
+            ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_detracteurs,
             ROUND(
-                100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*) -
-                100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*),
+                100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*) -
+                100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 1 THEN 1 ELSE 0 END) / COUNT(*),
             1) AS NPS
         FROM DONNEES_LIMESURVEY_NETTOYEES
         WHERE {where}
         AND "Question_Formulation" NOT LIKE 'Durée%'
         AND "Question_Formulation" NOT LIKE 'Commentaire%'
+        AND "Valeur_Brute" NOT IN ('Oui', 'Non')
     """
     return pd.read_sql_query(query, conn, params=params).iloc[0]
 
@@ -444,13 +445,14 @@ def get_nps_par_public(id_structure, annee):
         query = f"""
             SELECT '{public}' AS public,
                 COUNT(*) AS total,
-                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_promoteurs,
-                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_detracteurs,
-                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 4 THEN 1 ELSE 0 END) / COUNT(*) -
-                      100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (1,2) THEN 1 ELSE 0 END) / COUNT(*), 1) AS NPS
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_promoteurs,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS pct_detracteurs,
+                ROUND(100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) IN (3,4) THEN 1 ELSE 0 END) / COUNT(*) -
+                      100.0 * SUM(CASE WHEN CAST("Score" AS FLOAT) = 1 THEN 1 ELSE 0 END) / COUNT(*), 1) AS NPS
             FROM DONNEES_LIMESURVEY_NETTOYEES
             WHERE {where} AND ({filtre_public})
             AND "Question_Formulation" NOT LIKE 'Durée%'
+            AND "Valeur_Brute" NOT IN ('Oui', 'Non')
         """
         df = pd.read_sql_query(query, conn, params=params)
         if not df.empty and df.iloc[0]['total'] > 0:
@@ -636,18 +638,26 @@ if st.session_state.profil == "admin":
     with col_nav1:
         if st.button(" Tableau de bord", use_container_width=True):
             st.session_state.page = 'dashboard'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav2:
         if st.button(" Label Vivre", use_container_width=True):
             st.session_state.page = 'label'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav3:
         if st.button(" Données brutes", use_container_width=True):
             st.session_state.page = 'donnees'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav4:
         if st.button(" Export", use_container_width=True):
             st.session_state.page = 'export'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav5:
         if st.button(" Importer", use_container_width=True):
@@ -668,18 +678,22 @@ else:
     with col_nav1:
         if st.button(" Tableau de bord", use_container_width=True):
             st.session_state.page = 'dashboard'
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav2:
         if st.button(" Label Vivre", use_container_width=True):
             st.session_state.page = 'label'
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav3:
         if st.button(" Données brutes", use_container_width=True):
             st.session_state.page = 'donnees'
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav4:
         if st.button(" Export", use_container_width=True):
             st.session_state.page = 'export'
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav5:
         if st.button(" Mon compte", use_container_width=True):
@@ -698,40 +712,53 @@ st.markdown("---")
 df_structures = get_structures()
 annees_dispo = get_annees()
 
-with st.container():
-    st.markdown("<div class='filtre-bar'>", unsafe_allow_html=True)
-    if st.session_state.profil == "admin":
-        col_f1, col_f2, col_f3 = st.columns([3, 2, 1])
-        with col_f1:
-            options_etab = [" Tous les établissements"] + [f"{row['Structure']} ({row['Type']})" for _, row in df_structures.iterrows()]
-            choix_etab = st.selectbox(" Établissement", options=options_etab, index=0, key="select_etab")
-            if choix_etab == " Tous les établissements":
-                st.session_state.filtre_structure = None
-            else:
-                nom_choisi = choix_etab.split(" (")[0]
-                row_choisi = df_structures[df_structures['Structure'] == nom_choisi]
-                if not row_choisi.empty: st.session_state.filtre_structure = int(row_choisi.iloc[0]['Id_structure'])
-        with col_f2:
-            options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
-            choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee")
-            st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
-        with col_f3:
-            st.markdown("<br>", unsafe_allow_html=True)
-            if st.session_state.filtre_structure:
-                row_info = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
-                if not row_info.empty: st.caption(f" {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
-    else:
-        id_s = st.session_state.filtre_structure
-        if id_s:
-            row_etab = df_structures[df_structures['Id_structure'] == id_s]
-            if not row_etab.empty:
-                col_e1, col_e2 = st.columns([3, 2])
-                with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp;  {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
-                with col_e2:
-                    options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
-                    choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee_etab")
-                    st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
-    st.markdown("</div>", unsafe_allow_html=True)
+pages_sans_filtre = ['import', 'gestion_comptes', 'mon_compte']
+
+if st.session_state.page not in pages_sans_filtre:
+    with st.container():
+        st.markdown("<div class='filtre-bar'>", unsafe_allow_html=True)
+        if st.session_state.profil == "admin":
+            col_f1, col_f2, col_f3 = st.columns([3, 2, 1])
+            with col_f1:
+                options_etab = [" Tous les établissements"] + [f"{row['Structure']} ({row['Type']})" for _, row in df_structures.iterrows()]
+                # Calculer l'index actuel selon filtre_structure en session
+                if st.session_state.filtre_structure is None:
+                    index_etab = 0
+                else:
+                    row_actuelle = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
+                    if not row_actuelle.empty:
+                        nom_actuel = f"{row_actuelle.iloc[0]['Structure']} ({row_actuelle.iloc[0]['Type']})"
+                        index_etab = options_etab.index(nom_actuel) if nom_actuel in options_etab else 0
+                    else:
+                        index_etab = 0
+                choix_etab = st.selectbox(" Établissement", options=options_etab, index=index_etab, key="select_etab")
+                if choix_etab == " Tous les établissements":
+                    st.session_state.filtre_structure = None
+                else:
+                    nom_choisi = choix_etab.split(" (")[0]
+                    row_choisi = df_structures[df_structures['Structure'] == nom_choisi]
+                    if not row_choisi.empty: st.session_state.filtre_structure = int(row_choisi.iloc[0]['Id_structure'])
+            with col_f2:
+                options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
+                choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee")
+                st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
+            with col_f3:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.session_state.filtre_structure:
+                    row_info = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
+                    if not row_info.empty: st.caption(f" {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
+        else:
+            id_s = st.session_state.filtre_structure
+            if id_s:
+                row_etab = df_structures[df_structures['Id_structure'] == id_s]
+                if not row_etab.empty:
+                    col_e1, col_e2 = st.columns([3, 2])
+                    with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp;  {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
+                    with col_e2:
+                        options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
+                        choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee_etab")
+                        st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
+        st.markdown("</div>", unsafe_allow_html=True)
 
 
 
@@ -801,9 +828,9 @@ if st.session_state.page == 'dashboard':
         df_valide = df_filtre[df_filtre['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
         total_rep = len(df_valide)
         if total_rep > 0:
-            nb_prom = len(df_valide[df_valide['Score'] == 4.0])
-            nb_pass = len(df_valide[df_valide['Score'] == 3.0])
-            nb_detr = len(df_valide[df_valide['Score'].isin([1.0, 2.0])])
+            nb_prom = len(df_valide[df_valide['Score'].isin([3.0, 4.0])])
+            nb_pass = len(df_valide[df_valide['Score'] == 2.0])
+            nb_detr = len(df_valide[df_valide['Score'] == 1.0])
             nps_filtre = {
                 'NPS': round(((nb_prom/total_rep)*100)-((nb_detr/total_rep)*100), 1),
                 'pct_promoteurs': round((nb_prom/total_rep)*100, 1),
@@ -820,32 +847,44 @@ if st.session_state.page == 'dashboard':
         with col1:
             st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>NPS</div><div class='kpi-value' style='color:{couleur_nps};'>{nps_filtre['NPS']}</div><div class='kpi-label'>/ 100</div></div>""", unsafe_allow_html=True)
         with col2:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps_filtre['pct_promoteurs']}%</div><div class='kpi-label'>Score 4/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Promoteurs</div><div class='kpi-value' style='color:#6BBFB5;'>{nps_filtre['pct_promoteurs']}%</div><div class='kpi-label'>Score 3-4/4</div></div>""", unsafe_allow_html=True)
         with col3:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps_filtre['pct_passifs']}%</div><div class='kpi-label'>Score 3/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Passifs</div><div class='kpi-value' style='color:#F5A623;'>{nps_filtre['pct_passifs']}%</div><div class='kpi-label'>Score 2/4</div></div>""", unsafe_allow_html=True)
         with col4:
-            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps_filtre['pct_detracteurs']}%</div><div class='kpi-label'>Score 1-2/4</div></div>""", unsafe_allow_html=True)
+            st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Détracteurs</div><div class='kpi-value' style='color:#E8706A;'>{nps_filtre['pct_detracteurs']}%</div><div class='kpi-label'>Score 1/4</div></div>""", unsafe_allow_html=True)
         with col5:
             st.markdown(f"""<div class='kpi-card'><div class='kpi-label'>Réponses</div><div class='kpi-value' style='color:#5C5C5C;'>{int(nps_filtre['total']):,}</div><div class='kpi-label'>analysées</div></div>""", unsafe_allow_html=True)
 
         st.markdown("<br>", unsafe_allow_html=True)
         col_left, col_right = st.columns(2)
         with col_left:
-            st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
-            def attribuer_public(q):
-                q = str(q).lower()
-                if 'résident' in q or 'habitant' in q: return 'Résidents'
-                if 'proche' in q: return 'Proches'
-                if 'équipe' in q or 'salarié' in q: return 'Équipe'
-                return 'Autre'
-            df_valide['public'] = df_valide['Question_Formulation'].apply(attribuer_public)
-            scores_pub_calc = df_valide.groupby('public')['Score'].mean().reset_index()
-            scores_pub_calc.rename(columns={'Score': 'score_moyen'}, inplace=True)
-            scores_pub_calc['score_moyen'] = scores_pub_calc['score_moyen'].round(2)
-            df_pub = scores_pub_calc[scores_pub_calc['public'] != 'Autre'].copy()
             couleurs = {'Proches': '#6BBFB5', 'Équipe': '#F5A623', 'Résidents': '#E8706A'}
-            if not df_pub.empty:
-                fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
+            if choix_public == "Tous les publics":
+                # Recalculer sur toutes les données (pas df_valide déjà filtré)
+                st.markdown("<div class='section-title'> Score moyen par public</div>", unsafe_allow_html=True)
+                def attribuer_public(q):
+                    q = str(q).lower()
+                    if 'résident' in q or 'habitant' in q: return 'Résidents'
+                    if 'proche' in q: return 'Proches'
+                    if 'équipe' in q or 'salarié' in q: return 'Équipe'
+                    return 'Autre'
+                df_tous = df_donnees[df_donnees['Score'].isin([1.0, 2.0, 3.0, 4.0])].copy()
+                df_tous['public'] = df_tous['Question_Formulation'].apply(attribuer_public)
+                scores_pub_calc = df_tous.groupby('public')['Score'].mean().reset_index()
+                scores_pub_calc.rename(columns={'Score': 'score_moyen'}, inplace=True)
+                scores_pub_calc['score_moyen'] = scores_pub_calc['score_moyen'].round(2)
+                df_pub = scores_pub_calc[scores_pub_calc['public'] != 'Autre'].copy()
+                if not df_pub.empty:
+                    fig_bar = px.bar(df_pub, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
+                    fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
+                    fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
+                    st.plotly_chart(fig_bar, use_container_width=True)
+            else:
+                # Afficher uniquement la barre du public sélectionné
+                st.markdown(f"<div class='section-title'> Score moyen — {choix_public}</div>", unsafe_allow_html=True)
+                score_public_unique = round(df_valide['Score'].mean(), 2) if total_rep > 0 else 0
+                df_pub_unique = pd.DataFrame([{'public': choix_public, 'score_moyen': score_public_unique}])
+                fig_bar = px.bar(df_pub_unique, x='public', y='score_moyen', color='public', color_discrete_map=couleurs, text='score_moyen', title='Score moyen / 4')
                 fig_bar.update_traces(texttemplate='%{text}', textposition='outside')
                 fig_bar.update_layout(showlegend=False, plot_bgcolor='white', paper_bgcolor='white', yaxis=dict(range=[0, 4.5], title='Score /4'), xaxis_title='', title_font_family='Georgia', height=350)
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -884,7 +923,7 @@ if st.session_state.page == 'dashboard':
 
         # NPS par public
         st.markdown("<div class='section-title'> NPS (Indice de recommandation) par public</div>", unsafe_allow_html=True)
-        st.caption("Calculé à partir de la question 'Je recommande cet établissement' — Score 4 = Promoteur, Score 3 = Passif, Score 1-2 = Détracteur")
+        st.caption("Calculé à partir de la question 'Je recommande cet établissement' — Score 3-4 = Promoteur, Score 2 = Passif, Score 1 = Détracteur")
         nps_par_public = get_nps_par_public(id_structure_actif, annee_active)
         if nps_par_public:
             cols_nps = st.columns(len(nps_par_public))
@@ -1179,14 +1218,31 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
     <div style='background:#E8F8F0; border:1px solid #6BBFB5; border-radius:10px;
                 padding:16px; margin-bottom:20px; font-size:0.9rem; color:#0F6E56;'>
         <strong> Instructions :</strong><br>
-        Uploadez les fichiers xlsx exportés depuis LimeSurvey.<br>
-        Vous pouvez uploader plusieurs fichiers en même temps.
+        1. Sélectionnez l'établissement concerné par les fichiers.<br>
+        2. Uploadez les fichiers xlsx exportés depuis LimeSurvey.<br>
+        3. Lancez l'import — les données seront automatiquement rattachées à cet établissement.
     </div>
     """, unsafe_allow_html=True)
 
-    # Zone d'upload — accepte plusieurs fichiers xlsx
+    # ÉTAPE 1 : Choix de l'établissement
+    st.markdown("#### Étape 1 — Choisir l'établissement")
+    chemin_bdd_imp = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+    conn_imp = sqlite3.connect(chemin_bdd_imp)
+    df_struct_imp = pd.read_sql_query("SELECT Id_structure, Structure, Type FROM STRUCTURE ORDER BY Structure", conn_imp)
+    conn_imp.close()
+
+    options_struct = [f"{row['Structure']} ({row['Type']})" for _, row in df_struct_imp.iterrows()]
+    choix_struct_imp = st.selectbox("Établissement concerné par cet import :", options=options_struct, index=0)
+    nom_struct_choisi = choix_struct_imp.split(" (")[0]
+    row_struct_choisi = df_struct_imp[df_struct_imp['Structure'] == nom_struct_choisi]
+    id_structure_import = int(row_struct_choisi.iloc[0]['Id_structure']) if not row_struct_choisi.empty else None
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # ÉTAPE 2 : Upload des fichiers
+    st.markdown("#### Étape 2 — Sélectionner les fichiers LimeSurvey")
     fichiers_uploades = st.file_uploader(
-        "Sélectionnez les fichiers LimeSurvey (.xlsx)",
+        "Fichiers LimeSurvey (.xlsx)",
         type=["xlsx"],
         accept_multiple_files=True,
         help="Vous pouvez sélectionner plusieurs fichiers en même temps (Ctrl+clic)"
@@ -1194,7 +1250,7 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
 
     # Afficher les fichiers uploadés
     if fichiers_uploades:
-        st.markdown(f"**{len(fichiers_uploades)} fichier(s) sélectionné(s) :**")
+        st.markdown(f"**{len(fichiers_uploades)} fichier(s) sélectionné(s) pour {nom_struct_choisi} :**")
         for f in fichiers_uploades:
             st.markdown(f"-  `{f.name}`")
 
@@ -1202,6 +1258,10 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
 
         # Bouton de lancement
         if st.button(" Lancer l'import", use_container_width=True):
+
+            if id_structure_import is None:
+                st.error("Veuillez sélectionner un établissement valide.")
+                st.stop()
 
             colonnes_fixes = [
                 'ID de la réponse', 'Date de soumission', 'Dernière page',
@@ -1213,8 +1273,6 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
                 "Plutôt d'accord": 3,
                 "Plutôt pas d'accord": 2,
                 "Pas du tout d'accord": 1,
-                "Oui": 1,
-                "Non": 0
             }
 
             tous_les_tableaux = []
@@ -1252,35 +1310,13 @@ elif st.session_state.page == 'import' and st.session_state.profil == "admin":
                         dictionnaire_scores
                     ).fillna(df_long['Valeur_Brute'])
 
-                    # Ajout Annee
+                    # Ajout Annee depuis la date de soumission
                     df_long['Annee'] = pd.to_datetime(
                         df_long['Date de soumission'], errors='coerce'
                     ).dt.year.astype('Int64')
 
-                    # Mapping réel depuis QUESTIONNAIRE_MAPPING
-                    import re as re_module
-                    match = re_module.search(r'(\d+)', fichier.name)
-                    id_questionnaire = match.group(1) if match else None
-                    if id_questionnaire:
-                        chemin_bdd_map = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
-                        conn_map = sqlite3.connect(chemin_bdd_map)
-                        df_map = pd.read_sql_query(
-                            "SELECT Id_questionnaire, Etablissement, Annee FROM QUESTIONNAIRE_MAPPING WHERE Id_questionnaire = '" + id_questionnaire + "'",
-                            conn_map
-                        )
-                        df_struct = pd.read_sql_query('SELECT Id_structure, Structure FROM STRUCTURE', conn_map)
-                        conn_map.close()
-                        if not df_map.empty:
-                            etablissement = df_map.iloc[0]['Etablissement']
-                            annee_map = int(df_map.iloc[0]['Annee'])
-                            row_s = df_struct[df_struct['Structure'].str.strip() == etablissement.strip()]
-                            id_structure_reel = int(row_s.iloc[0]['Id_structure']) if not row_s.empty else None
-                            df_long['Id_structure'] = id_structure_reel
-                            df_long['Annee'] = annee_map
-                        else:
-                            df_long['Id_structure'] = None
-                    else:
-                        df_long['Id_structure'] = None
+                    # ✅ Rattachement à l'établissement choisi par l'utilisateur
+                    df_long['Id_structure'] = id_structure_import
 
                     tous_les_tableaux.append(df_long)
                     progress.progress((i + 1) / len(fichiers_uploades))
