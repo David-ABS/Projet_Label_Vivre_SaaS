@@ -504,21 +504,29 @@ def get_radar_thematique(id_structure, annee):
 def get_methodologie(id_structure, annee):
     conn = get_connexion()
     where, params = build_filtre(id_structure, annee)
-    query = f"""
-        SELECT CASE 
-            WHEN "Question_Formulation" LIKE '%résident%' OR "Question_Formulation" LIKE '%habitant%' THEN 'Résidents'
-            WHEN "Question_Formulation" LIKE '%proche%' THEN 'Proches'
-            WHEN "Question_Formulation" LIKE '%équipe%' OR "Question_Formulation" LIKE '%salarié%' THEN 'Équipe'
-            ELSE 'Autre' END AS public, COUNT(DISTINCT "ID de la réponse") AS nb_repondants
-        FROM DONNEES_LIMESURVEY_NETTOYEES WHERE {where} AND "Question_Formulation" NOT LIKE 'Durée%' GROUP BY public
-    """
-    df = pd.read_sql_query(query, conn, params=params)
+
+    publics = {
+        'Résidents': ["LIKE '%résident%'", "LIKE '%habitant%'"],
+        'Proches':   ["LIKE '%proche%'"],
+        'Équipe':    ["LIKE '%travail%'", "LIKE '%hiérarchie%'", "LIKE '%mon activité%'", "LIKE '%mon poste%'"]
+    }
+
     resultats = []
-    for _, row in df[df['public'] != 'Autre'].iterrows():
-        public = row['public']
-        format_col = 'Présentiel' if public == 'Résidents' else 'Distanciel (Email)' if public == 'Proches' else 'Distanciel (En ligne)'
-        couleur = '#E8706A' if public == 'Résidents' else '#6BBFB5' if public == 'Proches' else '#F5A623'
-        resultats.append({'public': public, 'nb_repondants': row['nb_repondants'], 'format': format_col, 'couleur': couleur})
+    for public, conditions in publics.items():
+        filtre = " OR ".join([f'"Question_Formulation" {c}' for c in conditions])
+        query = f"""
+            SELECT COUNT(DISTINCT "ID de la réponse") AS nb_repondants
+            FROM DONNEES_LIMESURVEY_NETTOYEES
+            WHERE {where} AND ({filtre})
+            AND "Question_Formulation" NOT LIKE 'Durée%'
+        """
+        df = pd.read_sql_query(query, conn, params=params)
+        nb = int(df.iloc[0]['nb_repondants']) if not df.empty else 0
+        if nb > 0:
+            format_col = 'Présentiel' if public == 'Résidents' else 'Distanciel (Email)' if public == 'Proches' else 'Distanciel (En ligne)'
+            couleur = '#E8706A' if public == 'Résidents' else '#6BBFB5' if public == 'Proches' else '#F5A623'
+            resultats.append({'public': public, 'nb_repondants': nb, 'format': format_col, 'couleur': couleur})
+
     ordre = {'Résidents': 1, 'Proches': 2, 'Équipe': 3}
     resultats.sort(key=lambda x: ordre.get(x['public'], 4))
     return resultats
@@ -542,14 +550,16 @@ def get_score_par_public(id_structure, annee):
         SELECT
             CASE
                 WHEN "Question_Formulation" LIKE '%résident%' OR "Question_Formulation" LIKE '%habitant%' THEN 'Résidents'
-                WHEN "Question_Formulation" LIKE '%proche%'   THEN 'Proches'
-                WHEN "Question_Formulation" LIKE '%équipe%' OR "Question_Formulation" LIKE '%salarié%'  THEN 'Équipe'
+                WHEN "Question_Formulation" LIKE '%proche%' THEN 'Proches'
+                WHEN "Question_Formulation" LIKE '%travail%' OR "Question_Formulation" LIKE '%hiérarchie%'
+                  OR "Question_Formulation" LIKE '%mon activité%' OR "Question_Formulation" LIKE '%mon poste%' THEN 'Équipe'
                 ELSE NULL
             END AS public,
             ROUND(AVG(CAST("Score" AS FLOAT)), 4) AS score_moyen_4,
             COUNT(DISTINCT "ID de la réponse") AS nb_repondants
         FROM DONNEES_LIMESURVEY_NETTOYEES
         WHERE {where} AND "Question_Formulation" NOT LIKE 'Durée%' AND "Question_Formulation" NOT LIKE 'Commentaire%' AND "Question_Formulation" NOT LIKE 'Temps%'
+        AND CAST("Score" AS FLOAT) IN (1.0, 2.0, 3.0, 4.0)
         GROUP BY public HAVING public IS NOT NULL ORDER BY public
     """
     df = pd.read_sql_query(query, conn, params=params)
@@ -593,36 +603,48 @@ def get_verdict_label(scores_public, criteres):
 # Le bouton "Importer" est visible uniquement pour l'admin 
 
 if st.session_state.profil == "admin":
-    # Admin : 7 colonnes avec bouton Import
-    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6, col_nav7, col_nav8 = st.columns([2, 2, 2, 2, 2, 2, 2, 1])
+    # Admin : 9 colonnes avec Import et Campagne
+    col_nav1, col_nav2, col_nav3, col_nav4, col_nav5, col_nav6, col_nav7, col_nav8, col_nav9 = st.columns([2, 2, 2, 2, 2, 2, 2, 2, 1])
     with col_nav1:
         if st.button(" Tableau de bord", use_container_width=True):
             st.session_state.page = 'dashboard'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav2:
         if st.button(" Label Vivre", use_container_width=True):
             st.session_state.page = 'label'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav3:
         if st.button(" Données brutes", use_container_width=True):
             st.session_state.page = 'donnees'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav4:
         if st.button(" Export", use_container_width=True):
             st.session_state.page = 'export'
+            st.session_state.filtre_structure = None
+            st.session_state.filtre_annee = None
             st.rerun()
     with col_nav5:
         if st.button(" Importer", use_container_width=True):
             st.session_state.page = 'import'
             st.rerun()
     with col_nav6:
+        if st.button(" Campagne", use_container_width=True):
+            st.session_state.page = 'campagne'
+            st.rerun()
+    with col_nav7:
         if st.button(" Comptes", use_container_width=True):
             st.session_state.page = 'gestion_comptes'
             st.rerun()
-    with col_nav7:
+    with col_nav8:
         if st.button(" Déconnexion", use_container_width=True):
             logout()
-    with col_nav8:
+    with col_nav9:
         st.markdown("<p style='text-align:right; padding-top:6px;'><span class='badge-admin'>Admin</span></p>", unsafe_allow_html=True)
 else:
     # Établissement : 6 colonnes sans bouton Import
@@ -660,53 +682,54 @@ st.markdown("---")
 df_structures = get_structures()
 annees_dispo = get_annees()
 
-pages_sans_filtre = ['import', 'gestion_comptes', 'mon_compte']
+pages_sans_filtre = ['import', 'gestion_comptes', 'mon_compte', 'campagne']
 
 if st.session_state.page not in pages_sans_filtre:
-    with st.container():
-        st.markdown("<div class='filtre-bar'>", unsafe_allow_html=True)
-        if st.session_state.profil == "admin":
-            col_f1, col_f2, col_f3 = st.columns([3, 2, 1])
-            with col_f1:
-                options_etab = [" Tous les établissements"] + [f"{row['Structure']} ({row['Type']})" for _, row in df_structures.iterrows()]
-                # Calculer l'index actuel selon filtre_structure en session
-                if st.session_state.filtre_structure is None:
-                    index_etab = 0
-                else:
-                    row_actuelle = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
-                    if not row_actuelle.empty:
-                        nom_actuel = f"{row_actuelle.iloc[0]['Structure']} ({row_actuelle.iloc[0]['Type']})"
-                        index_etab = options_etab.index(nom_actuel) if nom_actuel in options_etab else 0
-                    else:
+    afficher_filtre = (st.session_state.profil == "admin") or (st.session_state.filtre_structure is not None)
+    if afficher_filtre:
+        with st.container(border=True):
+            if st.session_state.profil == "admin":
+                col_f1, col_f2, col_f3 = st.columns([3, 2, 1])
+                with col_f1:
+                    options_etab = [" Tous les établissements"] + [f"{row['Structure']} ({row['Type']})" for _, row in df_structures.iterrows()]
+                    if st.session_state.filtre_structure is None:
                         index_etab = 0
-                choix_etab = st.selectbox(" Établissement", options=options_etab, index=index_etab, key="select_etab")
-                if choix_etab == " Tous les établissements":
-                    st.session_state.filtre_structure = None
-                else:
-                    nom_choisi = choix_etab.split(" (")[0]
-                    row_choisi = df_structures[df_structures['Structure'] == nom_choisi]
-                    if not row_choisi.empty: st.session_state.filtre_structure = int(row_choisi.iloc[0]['Id_structure'])
-            with col_f2:
-                options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
-                choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee")
-                st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
-            with col_f3:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.session_state.filtre_structure:
-                    row_info = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
-                    if not row_info.empty: st.caption(f" {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
-        else:
-            id_s = st.session_state.filtre_structure
-            if id_s:
-                row_etab = df_structures[df_structures['Id_structure'] == id_s]
-                if not row_etab.empty:
-                    col_e1, col_e2 = st.columns([3, 2])
-                    with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp;  {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
-                    with col_e2:
-                        options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
-                        choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee_etab")
-                        st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
-        st.markdown("</div>", unsafe_allow_html=True)
+                    else:
+                        row_actuelle = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
+                        if not row_actuelle.empty:
+                            nom_actuel = f"{row_actuelle.iloc[0]['Structure']} ({row_actuelle.iloc[0]['Type']})"
+                            index_etab = options_etab.index(nom_actuel) if nom_actuel in options_etab else 0
+                        else:
+                            index_etab = 0
+                    choix_etab = st.selectbox(" Établissement", options=options_etab, index=index_etab, key="select_etab")
+                    if choix_etab == " Tous les établissements":
+                        st.session_state.filtre_structure = None
+                    else:
+                        nom_choisi = choix_etab.split(" (")[0]
+                        row_choisi = df_structures[df_structures['Structure'] == nom_choisi]
+                        if not row_choisi.empty: st.session_state.filtre_structure = int(row_choisi.iloc[0]['Id_structure'])
+                with col_f2:
+                    options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
+                    choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee")
+                    st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
+                with col_f3:
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.session_state.filtre_structure:
+                        row_info = df_structures[df_structures['Id_structure'] == st.session_state.filtre_structure]
+                        if not row_info.empty: st.caption(f" {row_info.iloc[0]['Département']} · {row_info.iloc[0]['Région']}")
+            else:
+                id_s = st.session_state.filtre_structure
+                if id_s:
+                    row_etab = df_structures[df_structures['Id_structure'] == id_s]
+                    if not row_etab.empty:
+                        col_e1, col_e2 = st.columns([3, 2])
+                        with col_e1: st.markdown(f"** {row_etab.iloc[0]['Structure']}** &nbsp;|&nbsp; {row_etab.iloc[0]['Type']} &nbsp;|&nbsp;  {row_etab.iloc[0]['Département']}, {row_etab.iloc[0]['Région']}")
+                        with col_e2:
+                            options_annee = ["Toutes les années"] + [str(a) for a in annees_dispo]
+                            choix_annee = st.selectbox(" Année", options=options_annee, index=0, key="select_annee_etab")
+                            st.session_state.filtre_annee = None if choix_annee == "Toutes les années" else int(choix_annee)
+    else:
+        st.stop()
 
 
 
@@ -1095,10 +1118,9 @@ elif st.session_state.page == 'label':
         nom_actif = row_actif.iloc[0]['Structure'] if not row_actif.empty else "Établissement"
         annee_label = str(annee_active) if annee_active else "toutes années"
         st.markdown(f"**Analyse pour : {nom_actif} · {annee_label}**")
-
-        
     else:
-        st.markdown("**Analyse globale — tous les établissements**")
+        st.info("La labellisation s'applique à un établissement unique. Veuillez sélectionner un établissement dans le filtre en haut de page.")
+        st.stop()
 
     scores_public = get_score_par_public(id_structure_actif, annee_active)
     criteres = get_criteres_essentiels(id_structure_actif, annee_active)
@@ -1469,3 +1491,133 @@ elif st.session_state.page == 'gestion_comptes' and st.session_state.profil == "
                         st.warning(f" Communiquez ce mot de passe temporaire : `{nouveau_mdp_r}`")
                     except Exception as e:
                         st.error(f" Erreur : {e}")
+
+# ============================================================
+# PAGE CAMPAGNE — Saisie des données de campagne
+# Visible uniquement pour l'admin
+# ============================================================
+elif st.session_state.page == 'campagne' and st.session_state.profil == "admin":
+
+    st.markdown("<div class='section-title'> Données de campagne</div>", unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style='background:#E8F8F0; border:1px solid #6BBFB5; border-radius:10px;
+                padding:16px; margin-bottom:20px; font-size:0.9rem; color:#0F6E56;'>
+        <strong> Instructions :</strong><br>
+        Renseignez ici les données de campagne pour chaque établissement et chaque année.
+        Ces informations structurent l'import et permettent de contextualiser les résultats.
+    </div>
+    """, unsafe_allow_html=True)
+
+    chemin_bdd_c = os.path.join(os.path.dirname(os.path.abspath(__file__)), "label_vivre.sqlite")
+    conn_c = sqlite3.connect(chemin_bdd_c)
+    df_struct_c = pd.read_sql_query("SELECT Id_structure, Structure, Type FROM STRUCTURE ORDER BY Structure", conn_c)
+    conn_c.close()
+
+    # Sélection établissement + année
+    col_c1, col_c2 = st.columns([3, 1])
+    with col_c1:
+        options_s = [f"{row['Structure']} ({row['Type']})" for _, row in df_struct_c.iterrows()]
+        choix_s = st.selectbox("Établissement", options=options_s)
+        nom_s = choix_s.split(" (")[0]
+        row_s = df_struct_c[df_struct_c['Structure'] == nom_s]
+        id_s_camp = int(row_s.iloc[0]['Id_structure']) if not row_s.empty else None
+    with col_c2:
+        annee_c = st.number_input("Année", min_value=2020, max_value=2030, value=2026, step=1)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Charger données existantes si elles existent
+    conn_c = sqlite3.connect(chemin_bdd_c)
+    try:
+        df_exist = pd.read_sql_query(
+            f"SELECT * FROM CAMPAGNE WHERE Id_structure = {id_s_camp} AND Annee = {annee_c}",
+            conn_c
+        )
+        data_exist = df_exist.iloc[0] if not df_exist.empty else None
+    except:
+        data_exist = None
+    conn_c.close()
+
+    def val(champ, defaut=0):
+        if data_exist is not None and champ in data_exist and pd.notna(data_exist[champ]):
+            return data_exist[champ]
+        return defaut
+
+    def to_int(v):
+        try: return int(float(str(v))) if str(v).strip() else 0
+        except: return 0
+
+    def to_float(v):
+        try: return float(str(v).replace(',', '.')) if str(v).strip() else 0.0
+        except: return 0.0
+
+    st.markdown("#### Échantillons")
+    col_e1, col_e2, col_e3 = st.columns(3)
+    with col_e1:
+        nb_resident = st.text_input("Nb Résidents", value=str(int(val('Nb_Resident', 0))))
+    with col_e2:
+        nb_proches = st.text_input("Nb Proches", value=str(int(val('Nb_proches', 0))))
+    with col_e3:
+        nb_salarie = st.text_input("Nb Salariés", value=str(int(val('Nb_Salarie', 0))))
+
+    st.markdown("#### Indicateurs médico-sociaux")
+    col_m1, col_m2 = st.columns(2)
+    with col_m1:
+        gmp = st.text_input("GMP", value=str(val('GMP', 0.0)))
+        pmp = st.text_input("PMP", value=str(val('PMP', 0.0)))
+        taux_occup = st.text_input("Taux d'occupation (%)", value=str(val('Taux_OCCUP', 0.0)))
+    with col_m2:
+        taux_encad = st.text_input("Taux d'encadrement (%)", value=str(val('Taux_ENCAD', 0.0)))
+        turnover = st.text_input("Turnover (%)", value=str(val('TURNOVER', 0.0)))
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    if st.button("Enregistrer la campagne", use_container_width=True):
+        try:
+            conn_c = sqlite3.connect(chemin_bdd_c)
+            nb_r = to_int(nb_resident)
+            nb_p = to_int(nb_proches)
+            nb_s = to_int(nb_salarie)
+            gmp_v = to_float(gmp)
+            pmp_v = to_float(pmp)
+            occ_v = to_float(taux_occup)
+            enc_v = to_float(taux_encad)
+            trn_v = to_float(turnover)
+
+            # Vérifier si une campagne existe déjà
+            df_check = pd.read_sql_query(
+                f"SELECT Id_campagne FROM CAMPAGNE WHERE Id_structure = {id_s_camp} AND Annee = {int(annee_c)}",
+                conn_c
+            )
+
+            if not df_check.empty:
+                # Mise à jour
+                id_camp = int(df_check.iloc[0]['Id_campagne'])
+                conn_c.execute("""
+                    UPDATE CAMPAGNE SET Nb_Resident=?, Nb_proches=?, Nb_Salarie=?,
+                    GMP=?, PMP=?, Taux_OCCUP=?, Taux_ENCAD=?, TURNOVER=?
+                    WHERE Id_campagne=?
+                """, (nb_r, nb_p, nb_s, gmp_v, pmp_v, occ_v, enc_v, trn_v, id_camp))
+                msg = "Campagne mise à jour avec succès !"
+            else:
+                # Insertion nouvelle campagne
+                df_max = pd.read_sql_query("SELECT MAX(Id_campagne) AS max_id FROM CAMPAGNE", conn_c)
+                new_id = int(df_max.iloc[0]['max_id'] or 0) + 1
+                from datetime import date
+                conn_c.execute("""
+                    INSERT INTO CAMPAGNE (Id_campagne, Annee, Mois, Date_debut, Statut,
+                    Nb_Resident, Nb_proches, Nb_Salarie, GMP, PMP, Taux_OCCUP, Taux_ENCAD, TURNOVER, Id_structure)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (new_id, int(annee_c), 1, date.today().isoformat(), 'Active',
+                      nb_r, nb_p, nb_s, gmp_v, pmp_v, occ_v, enc_v, trn_v, id_s_camp))
+                msg = "Campagne enregistrée avec succès !"
+
+            conn_c.commit()
+            conn_c.close()
+            st.cache_data.clear()
+            st.success(f" {msg}")
+            st.info(f"Établissement : {nom_s} | Année : {int(annee_c)} | Résidents : {nb_r} | Proches : {nb_p} | Salariés : {nb_s}")
+
+        except Exception as e:
+            st.error(f" Erreur : {e}")
