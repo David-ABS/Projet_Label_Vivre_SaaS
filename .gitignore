@@ -11,4 +11,4 @@
 __pycache__/
 
 # Ne pas envoyer les fichiers de configuration sensibles
-#creer_hash.py
+creer_hash.py
