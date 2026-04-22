@@ -31,15 +31,51 @@ Graphiques : Plotly Express (Interactifs)
 Voici comment la donnée circule depuis l'import Excel jusqu'à l'interface utilisateur :
 
 ---
-
+### 1. Organisation de l'archive
+📂 Projet_Label_Vivre_SaaS/
+│
+├── 📂 .streamlit/               # Configuration du serveur
+│   └── 📄 config.toml           # Force le mode clair et le design de l'app
+│
+├── 📂 assets/                   # Médias et ressources visuelles
+│   ├── 🖼️ logo.png
+│   ├── 🖼️ Diagramme_flux.drawio.jpg
+│   └── 🖼️ explication visuelle du Depivotage (ETL).png
+│
+├── 📂 jeux_de_donnees/          # Les données brutes (Sources)
+│   ├── 📊 etablissement.xlsx    # Le référentiel des établissements
+│   └── 📊 (Les 9 fichiers LimeSurvey EHPAD/HAP/RA.xlsx)
+│
+├── 📂 scripts_sql/              # Requêtes d'analyse et architecture BDD
+│   ├── 📄 analyse_moyennes_par_public.sql
+│   ├── 📄 analyse_nps.sql
+│   ├── 📄 analyse_requetes_croisees.sql
+│   └── 📄 SCRIPT_CREATION_BDD_V1.sql
+│
+├── 📂 outils_admin/             # Scripts utilitaires et configuration
+│   ├── 🐍 creer_hash.py
+│   ├── 🐍 setup_db.py
+│   ├── 🐍 verif_bdd.py
+│   └── 🐍 api_limesurvey_local.py
+│
+├── 📂 pipeline_etl/             # Moteur de transformation de la donnée
+│   ├── 🐍 etl_limesurvey.py
+│   ├── 🐍 import_structure.py
+│   └── 🐍 patch_donnees.py
+│
+├── 🐍 app.py                    # ⭐ Le cœur : L'application web principale
+├── 🗄️ label_vivre.sqlite        # ⭐ La base de données en production
+├── 📄 requirements.txt          # ⭐ Les dépendances Python (pour l'installation)
+├── 📖 README.md                 # ⭐ La documentation métier et technique
+└── 📄 .gitignore                # ⭐ Les règles d'exclusion pour GitHub
 ## 🗺️ Architecture & Flux de données
 Le projet repose sur une séparation stricte entre les données brutes et le moteur d'analyse.
 
-### 1. Diagramme de Flux (Utilisateur & Système)
+### 2. Diagramme de Flux (Utilisateur & Système)
 Le schéma complet détaillant le parcours de la donnée (de l'import à la visualisation) est disponible dans le dossier des ressources.
 ![Diagramme de flux](assets/Diagramme_flux.drawio.png)
 
-### 2. Pipeline ETL : La "Moulinette" de Transformation
+### 3. Pipeline ETL : La "Moulinette" de Transformation
 Pour transformer les exports LimeSurvey (format "Large") en une base de données relationnelle (format "Long"), nous utilisons un script de transformation (ETL) basé sur Python et Pandas.
 
 **Le concept du Dépivotage (Melt) :**
