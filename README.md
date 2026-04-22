@@ -32,6 +32,7 @@ Voici comment la donnée circule depuis l'import Excel jusqu'à l'interface util
 
 ---
 ### 1. Organisation de l'archive
+<pre>
 📂 Projet_Label_Vivre_SaaS/
 │
 ├── 📂 .streamlit/               # Configuration du serveur
@@ -68,6 +69,8 @@ Voici comment la donnée circule depuis l'import Excel jusqu'à l'interface util
 ├── 📄 requirements.txt          # ⭐ Les dépendances Python (pour l'installation)
 ├── 📖 README.md                 # ⭐ La documentation métier et technique
 └── 📄 .gitignore                # ⭐ Les règles d'exclusion pour GitHub
+</pre>
+
 ## 🗺️ Architecture & Flux de données
 Le projet repose sur une séparation stricte entre les données brutes et le moteur d'analyse.
 
