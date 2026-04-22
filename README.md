@@ -118,7 +118,8 @@ label_vivre.sqlite : Base de données relationnelle complète.
 💻 Installation Locale (Développeurs)
 Bash
 # 1. Récupération du dépôt
-https://github.com/David-ABS/Projet_Label_Vivre_SaaS.git
+git clone [https://github.com/David-ABS/Projet_Label_Vivre_SaaS.git](https://github.com/David-ABS/Projet_Label_Vivre_SaaS.git)
+cd Projet_Label_Vivre_SaaS
 
 # 2. Installation des dépendances
 pip install -r requirements.txt
